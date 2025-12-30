@@ -1,5 +1,6 @@
 include {
-    split_dataset
+    split_dataset;
+    train_model
 } from './modules/grid_search.nf'
 workflow {
     dataset = Channel.value(file(params.dataset))
@@ -8,17 +9,25 @@ workflow {
         .map { row ->
             tuple(
                 row.patch_encoder,
-                row.slide_encoder,
                 row.patch_size,
                 row.mag,
-                row.batch_size,
                 row.overlap
             )
         }
+    architectures = Channel.fromPath("${projectDir}/params/architectures.csv")
+        .splitCsv(header: true, sep: ',')
+        .map { row ->
+            tuple(
+                row.architecture,
+            )
+        }
     feature_paths = feature_extractors.map { row ->
-        tuple( row[1], file("${params.features_dir}/${row[3]}x_${row[2]}px_${row[5]}px_overlap/slide_features_${row[1]}/"))
+        tuple( row[0], file("${params.features_dir}/${row[2]}x_${row[1]}px_${row[3]}px_overlap/features_${row[0]}/"))
     }
+    configs = feature_paths.combine(architectures)
     script_split_dataset = Channel.value(file("${projectDir}/bin/make_splits.py"))
+    script_train = Channel.value(file("${projectDir}/bin/train.py"))
 
     split_dataset(dataset, params.target, script_split_dataset)
+    train_model(configs, split_dataset.out.splits, script_train)
 }
