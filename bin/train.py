@@ -93,6 +93,8 @@ if __name__ == "__main__":
     train_metrics = pd.json_normalize(train_metrics)
     test_metrics = pd.json_normalize(test_metrics)
     metrics = pd.concat([train_metrics, test_metrics], axis = 1)
-
-    results_path = f"{results_dir}/{args.fold}.csv"
+    metrics["fold"] = args.fold
+    metrics["feature_extractor"] = args.feature_extractor
+    metrics["mil"] = args.mil
+    results_path = f"{results_dir}/{args.feature_extractor}.${args.mil}.{args.fold}.csv"
     metrics.to_csv(results_path, index=False)

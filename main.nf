@@ -1,6 +1,7 @@
 include {
     split_dataset;
-    train_model
+    train_model;
+    concat_results
 } from './modules/grid_search.nf'
 workflow {
     dataset = Channel.value(file(params.dataset))
@@ -31,5 +32,5 @@ workflow {
 
     split_dataset(dataset, params.target, script_split_dataset)
     train_model(configs, split_dataset.out.splits, script_train)
-    train_model.out.results.view()
+    concat_results(train_model.out.results.collect())
 }

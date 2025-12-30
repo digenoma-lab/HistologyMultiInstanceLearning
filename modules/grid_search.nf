@@ -29,8 +29,8 @@ process train_model {
     tuple path(dataset), val(target_column), path(splits_dir)
     path(train_script)
     output:
-    tuple val("${feature_extractor}.${mil}"), val(fold), path("${fold}.csv"), emit: results
-    path("${fold}-checkpoint.pt"), emit: checkpoint
+    path("${feature_extractor}.${mil}.${fold}.csv"), emit: results
+    path("${feature_extractor}.${mil}.${fold}-checkpoint.pt"), emit: checkpoint
     script:
     """
     python -u $train_script --fold $fold --feature_extractor $feature_extractor \\
@@ -40,22 +40,23 @@ process train_model {
     """
     stub:
     """
-    touch ${fold}-checkpoint.pt
-    touch ${fold}.csv
+    touch ${feature_extractor}.${mil}.${fold}-checkpoint.pt
+    touch ${feature_extractor}.${mil}.${fold}.csv
     """
 }
 
-/* process concat_results {
+process concat_results {
     input:
-    tuple value(feature_extractor), value(mil), val(fold), path(csv), emit: results
+    path(csv)
     output:
-
+    path("summary.csv"), emit: summary
     script:
     """
-    
+    echo "epoch,train_loss,train_auc,train_acc,val_loss,val_auc,val_acc,test_auc,test_acc,optimal_threshold,f1_macro,fold,feature_extractor,mil" > head.txt
+    cat head.txt ${csv} | grep -v "epoch" > summary.csv
     """
     stub:
     """
-
+    touch summary.csv
     """
-} */
+}
