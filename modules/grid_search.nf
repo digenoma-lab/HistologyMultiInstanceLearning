@@ -30,7 +30,7 @@ process train_model {
     path(train_script)
     output:
     path("${feature_extractor}.${mil}.${fold}.csv"), emit: results
-    path("${feature_extractor}.${mil}.${fold}-checkpoint.pt"), emit: checkpoint
+    path("${fold}-checkpoint.pt"), emit: checkpoint
     script:
     """
     python -u $train_script --fold $fold --feature_extractor $feature_extractor \\
@@ -40,12 +40,13 @@ process train_model {
     """
     stub:
     """
-    touch ${feature_extractor}.${mil}.${fold}-checkpoint.pt
+    touch ${fold}-checkpoint.pt
     touch ${feature_extractor}.${mil}.${fold}.csv
     """
 }
 
 process concat_results {
+    publishDir "${params.outdir}/training/", mode:"copy"
     input:
     path(csv)
     output:

@@ -96,5 +96,5 @@ if __name__ == "__main__":
     metrics["fold"] = args.fold
     metrics["feature_extractor"] = args.feature_extractor
     metrics["mil"] = args.mil
-    results_path = f"{results_dir}/{args.feature_extractor}.${args.mil}.{args.fold}.csv"
+    results_path = f"{results_dir}/{args.feature_extractor}.{args.mil}.{args.fold}.csv"
     metrics.to_csv(results_path, index=False)
