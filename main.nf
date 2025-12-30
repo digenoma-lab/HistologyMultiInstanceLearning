@@ -25,7 +25,7 @@ workflow {
     feature_paths = feature_extractors.map { row ->
         tuple( row[0], file("${params.features_dir}/${row[2]}x_${row[1]}px_${row[3]}px_overlap/features_${row[0]}/"))
     }
-    folds = channel.of(0..10)
+    folds = channel.of(0..9)
     configs = feature_paths.combine(architectures).combine(folds)
     script_split_dataset = Channel.value(file("${projectDir}/bin/make_splits.py"))
     script_train = Channel.value(file("${projectDir}/bin/train.py"))
