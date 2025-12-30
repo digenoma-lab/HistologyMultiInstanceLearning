@@ -1,0 +1,12 @@
+patch_encoder,slide_encoder,patch_size,mag,batch_size,overlap
+uni_v1,mean-uni_v1,256,20,200,0
+phikon_v2,mean-phikon_v2,224,20,200,0
+resnet50,mean-resnet50,256,20,200,0
+uni_v2,mean-uni_v2,256,20,200,0
+virchow,mean-virchow,224,20,200,0
+conch_v15,mean-conch_v15,512,20,200,0
+ctranspath,mean-ctranspath,256,20,200,0
+virchow2,mean-virchow2,224,20,200,0
+conch_v15,titan,512,20,200,0
+ctranspath,chief,256,20,200,0
+virchow,prism,224,20,200,0
