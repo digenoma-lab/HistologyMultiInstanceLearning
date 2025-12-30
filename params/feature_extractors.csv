@@ -1,4 +1,3 @@
 patch_encoder,patch_size,mag,overlap
-phikon_v2,224,20,0
 uni_v2,256,20,0
 virchow2,224,20,0
