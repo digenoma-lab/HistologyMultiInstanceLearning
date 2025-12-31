@@ -1,7 +1,8 @@
 include {
     split_dataset;
     train_model;
-    concat_results
+    concat_results;
+    boxplot_auc
 } from './modules/grid_search.nf'
 workflow {
     dataset = Channel.value(file(params.dataset))
@@ -28,9 +29,11 @@ workflow {
     folds = channel.of(0..9)
     configs = feature_paths.combine(architectures).combine(folds)
     script_split_dataset = Channel.value(file("${projectDir}/bin/make_splits.py"))
+    script_boxplot = Channel.value(file("${projectDir}/bin/boxplot_auc.R"))
     script_train = Channel.value(file("${projectDir}/bin/train.py"))
 
     split_dataset(dataset, params.target, script_split_dataset)
     train_model(configs, split_dataset.out.splits, script_train)
     concat_results(train_model.out.results.collect())
+    boxplot_auc(concat_results.out.summary, script_boxplot)
 }

@@ -54,10 +54,27 @@ process concat_results {
     script:
     """
     echo "epoch,train_loss,train_auc,train_acc,val_loss,val_auc,val_acc,test_auc,test_acc,optimal_threshold,f1_macro,fold,feature_extractor,mil" > head.txt
-    cat head.txt ${csv} | grep -v "epoch" > summary.csv
+    cat ${csv} | grep -v "epoch" > body.txt
+    cat head.txt body.txt > summary.csv
     """
     stub:
     """
     touch summary.csv
+    """
+}
+process boxplot_auc {
+    publishDir "${params.outdir}/plots/", mode:"copy"
+    input:
+    path(summary_file)
+    path(script_boxplot)
+    output:
+    path("boxplot.png"), emit: plot
+    script:
+    """
+    Rscript $script_boxplot
+    """
+    stub:
+    """
+    touch boxplot.png
     """
 }
