@@ -23,6 +23,7 @@ process split_dataset {
 }
 
 process train_model {
+    tag "${feature_extractor}.${mil}"
     publishDir "${params.outdir}/training/${feature_extractor}.${mil}", mode:"copy"
     input:
     tuple val(feature_extractor), path(features_path), val(mil), val(fold)
