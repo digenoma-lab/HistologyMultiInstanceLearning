@@ -10,7 +10,7 @@ import numpy as np
 from histomil import H5Dataset, seed_torch, get_weights, train, test, import_model, variable_patches_collate_fn
 
 SEED = 2
-BATCH_SIZE = 16
+BATCH_SIZE = 32
 seed_torch(SEED)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
