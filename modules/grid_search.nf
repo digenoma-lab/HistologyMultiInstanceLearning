@@ -22,27 +22,24 @@ process split_dataset {
         """
 }
 
-process train_model {
+process grid_search {
     tag "${feature_extractor}.${mil}"
     publishDir "${params.outdir}/training/${feature_extractor}.${mil}", mode:"copy"
     input:
-    tuple val(feature_extractor), path(features_path), val(mil), val(fold)
+    tuple val(feature_extractor), path(features_path), val(mil), path(grid_params)
     tuple path(dataset), val(target_column), path(splits_dir)
     path(train_script)
     output:
-    path("${feature_extractor}.${mil}.${fold}.csv"), emit: results
-    path("${fold}-checkpoint.pt"), emit: checkpoint
+    path("test_results.csv"), emit: results
     script:
     """
-    python -u $train_script --fold $fold --feature_extractor $feature_extractor \\
-    --features_path $features_path --splits_dir $splits_dir \\
-    --csv_path $splits_dir/dataset.csv --mil $mil \\
-    --results_dir ./
+    python -u $train_script --folds 10 --features_path $features_path \\
+    --feature_extractor $feature_extractor --splits_dir $splits_dir --csv_path $splits_dir/dataset.csv \\
+    --mil $mil --results_dir ./ --grid_params $grid_params
     """
     stub:
     """
-    touch ${fold}-checkpoint.pt
-    touch ${feature_extractor}.${mil}.${fold}.csv
+    touch test_results.csv
     """
 }
 
