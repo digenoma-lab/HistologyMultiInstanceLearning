@@ -263,6 +263,22 @@ results/
 
 ---
 
+### Citation
+
+If you use this pipeline in your research, please cite:
+
+- **MIL-Lab**: The repository containing the MIL architectures used in this pipeline
+  - Repository: [https://github.com/mahmoodlab/MIL-Lab](https://github.com/mahmoodlab/MIL-Lab)
+  - Please cite the original MIL-Lab paper and the specific architecture papers you use
+
+- **HistoMIL**: The library used for training MIL architectures on histology data
+  - Repository: [https://github.com/digenoma-lab/HistoMIL](https://github.com/digenoma-lab/HistoMIL)
+  - Please cite the HistoMIL library if you use it in your research
+
+- **This pipeline**: If you use this Nextflow pipeline, please cite this repository
+
+---
+
 ### Contact
 
 Author: **Gabriel Cabas**  
