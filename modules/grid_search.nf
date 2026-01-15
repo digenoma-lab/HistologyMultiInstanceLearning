@@ -26,24 +26,26 @@ process split_dataset {
 process grid_search {
     tag "${feature_extractor}.${mil}"
     publishDir "${params.outdir}/training/${feature_extractor}.${mil}", mode:"copy", pattern: "test_results_*.csv"
-    publishDir "${params.outdir}/training/${feature_extractor}.${mil}", mode:"copy", pattern: "predictions_*.csv"
+    publishDir "${params.outdir}/predictions/${feature_extractor}.${mil}", mode:"copy", pattern: "predictions_*.csv"
     input:
     tuple val(feature_extractor), path(features_path), val(mil), path(grid_params)
     tuple path(dataset), val(target_column), path(splits_dir)
     path(train_script)
     output:
     path("test_results_${feature_extractor}.${mil}.csv"), emit: results
-    path("predictions_${feature_extractor}.${mil}.csv"), emit: predictions
+    path("predictions_${feature_extractor}.${mil}_*.csv"), emit: predictions
     script:
     """
     python -u $train_script --folds 3 --features_path $features_path \\
     --feature_extractor $feature_extractor --splits_dir $splits_dir --csv_path $splits_dir/dataset.csv \\
     --mil $mil --results_dir ./ --grid_params $grid_params
-    cp test_results.csv test_results_${feature_extractor}.${mil}.csv
     """
     stub:
     """
-    touch test_results.csv
+    touch test_results_${feature_extractor}.${mil}.csv
+    for i in {0..10}; do
+        touch predictions_${feature_extractor}.${mil}_\${i}.csv
+    done
     """
 }
 
