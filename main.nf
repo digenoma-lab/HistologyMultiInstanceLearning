@@ -3,6 +3,7 @@ include {
     concat_results;
     boxplot_auc;
     grid_search;
+    roc_auc_curve;
 } from './modules/grid_search.nf'
 workflow {
     dataset = Channel.value(file(params.dataset))
@@ -29,9 +30,11 @@ workflow {
     configs = feature_paths.combine(architectures)
     script_split_dataset = Channel.value(file("${projectDir}/bin/HistoMILTrainer/make_splits.py"))
     script_boxplot = Channel.value(file("${projectDir}/bin/boxplot_auc.R"))
+    script_roc_auc = Channel.value(file("${projectDir}/bin/roc_auc_curve.R"))
     script_train = Channel.value(file("${projectDir}/bin/HistoMILTrainer/grid_search.py"))
     split_dataset(dataset, params.target, script_split_dataset)
     grid_search(configs, split_dataset.out.splits, script_train)
     concat_results(grid_search.out.results.collect())
     boxplot_auc(concat_results.out.summary, script_boxplot)
+    roc_auc_curve(grid_search.out.predictions, script_roc_auc)
 }

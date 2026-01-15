@@ -33,7 +33,7 @@ process grid_search {
     path(train_script)
     output:
     path("test_results_${feature_extractor}.${mil}.csv"), emit: results
-    path("predictions_${feature_extractor}.${mil}_*.csv"), emit: predictions
+    tuple path("predictions_${feature_extractor}.${mil}_*.csv"), val(feature_extractor), val(mil), emit: predictions
     script:
     """
     python -u $train_script --folds 3 --features_path $features_path \\
@@ -80,5 +80,22 @@ process boxplot_auc {
     stub:
     """
     touch boxplot.png
+    """
+}
+
+process roc_auc_curve {
+    publishDir "${params.outdir}/plots/", mode:"copy"
+    input:
+    tuple path(predictions_files), val(feature_extractor), val(mil)
+    path(script_roc_auc)
+    output:
+    path("${feature_extractor}.${mil}.roc_auc.png"), emit: plot
+    script:
+    """
+    Rscript $script_roc_auc $predictions_files ${feature_extractor}.${mil}.roc_auc.png
+    """
+    stub:
+    """
+    touch ${feature_extractor}.${mil}.roc_auc.png
     """
 }
