@@ -1,5 +1,9 @@
 ## HistologyMultiInstanceLearning
 
+<p align="center">
+  <img src="imgs/logo.png" alt="Histology Multi Instance Learning Pipeline" width="40%"/>
+</p>
+
 **Multi-Instance Learning (MIL) pipeline** for histopathology to evaluate different **MIL architectures** (ABMIL, CLAM, DSMIL, etc.) using pre-extracted features from **foundation models** (for example, *uni_v2*, *virchow2*).
 
 The workflow is implemented in **Nextflow DSL2** and uses containers (Wave/Singularity) to run both the Python part (MIL training and grid search) and the R part (visualizations).
