@@ -1,0 +1,87 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Histology Multi-Instance Learning Pipeline Parameters",
+  "description": "Schema for Histology Multi-Instance Learning Pipeline parameters",
+  "type": "object",
+  "definitions": {
+    "input_output_options": {
+      "title": "Input/Output Options",
+      "type": "object",
+      "description": "Define the input data and output locations",
+      "fa_icon": "fas fa-terminal",
+      "properties": {
+        "dataset": {
+          "type": "string",
+          "format": "file-path",
+          "exists": true,
+          "mimetype": "text/csv",
+          "description": "Path to CSV file containing dataset with case_id, slide_id, and target columns",
+          "pattern": "^\\S+\\.csv$",
+          "help_text": "CSV file with at least: a case_id column to identify cases (patients) for case-level splitting, a slide_id column to link samples with feature files, and a target column (specified by params.target).",
+          "fa_icon": "fas fa-file-csv",
+          "errorMessage": "The dataset file path must end with .csv, must not contain spaces, and must exist."
+        },
+        "features_dir": {
+          "type": "string",
+          "format": "directory-path",
+          "minLength": 1,
+          "description": "Base directory path where feature directories are located",
+          "help_text": "Base directory path used to construct feature paths. Feature directories follow the pattern: {features_dir}{mag}x_{patch_size}px_{overlap}px_overlap/features_{patch_encoder}/",
+          "fa_icon": "fas fa-folder-open",
+          "errorMessage": "The features directory path must be at least 1 character long."
+        },
+        "outdir": {
+          "type": "string",
+          "format": "directory-path",
+          "minLength": 1,
+          "description": "Output directory for pipeline results",
+          "default": "./results/",
+          "help_text": "Directory where all pipeline outputs will be saved. Results include training results (summary.csv, test_results), predictions, splits, and plots (boxplot.png).",
+          "fa_icon": "fas fa-folder-open",
+          "errorMessage": "The output directory path must be at least 1 character long."
+        }
+      },
+      "required": [
+        "dataset",
+        "features_dir"
+      ]
+    },
+    "ml_options": {
+      "title": "Machine Learning Options",
+      "type": "object",
+      "description": "Define the machine learning task configuration",
+      "fa_icon": "fas fa-brain",
+      "properties": {
+        "target": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Column name of the target variable to predict",
+          "help_text": "Name of the column in the dataset CSV that contains the target variable (e.g. 'target', 'ESR1', 'MKI67').",
+          "fa_icon": "fas fa-bullseye",
+          "errorMessage": "The target column name must be at least 1 character long and cannot be empty."
+        },
+        "task": {
+          "type": "string",
+          "enum": ["classification"],
+          "description": "Type of machine learning task to perform",
+          "default": "classification",
+          "help_text": "Currently only 'classification' is supported for binary classification tasks using MIL architectures.",
+          "fa_icon": "fas fa-tasks",
+          "errorMessage": "The task must be 'classification'."
+        }
+      },
+      "required": [
+        "target"
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "$ref": "#/definitions/input_output_options"
+    },
+    {
+      "$ref": "#/definitions/ml_options"
+    }
+  ]
+}
+
