@@ -1,0 +1,37 @@
+Bootstrap: docker
+From: mambaorg/micromamba:1.5.8
+
+%labels
+    Author Gabriel Cabas
+    Histology Multi Instance Learning environment for Nextflow
+    Version 1.0.0
+
+%files
+    environment.yml environment.yml
+
+%post
+    set -e
+
+    apt-get update && apt-get install -y --no-install-recommends \
+        procps \
+        ca-certificates \
+        bash \
+    && rm -rf /var/lib/apt/lists/*
+
+    # Create temp directory inside container with more space
+    mkdir -p /opt/tmp_build
+    export TMPDIR=/opt/tmp_build
+    export PIP_CACHE_DIR=/opt/tmp_build/pip_cache
+
+    micromamba create -f environment.yml -n env
+    micromamba clean --all
+
+    # Clean up build temp
+    rm -rf /opt/tmp_build
+
+%environment
+    export PATH=/opt/conda/envs/env/bin:$PATH
+    export MAMBA_ROOT_PREFIX=/opt/conda
+
+%runscript
+    exec "$@"

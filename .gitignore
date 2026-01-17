@@ -3,3 +3,4 @@ work/
 .nextflow*
 results*/
 bin/HistoMILTrainer/
+*.sif

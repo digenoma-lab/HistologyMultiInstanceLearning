@@ -1,0 +1,16 @@
+name: histology_mil_nf
+channels:
+  - conda-forge
+dependencies:
+  - python=3.10
+  - pip
+  - git
+  - pip:
+    - git+https://github.com/GabrielCabas/MIL-Lab.git
+    - git+https://github.com/digenoma-lab/HistoMILTrainer.git
+    - git+https://github.com/oval-group/smooth-topk
+    - pandas
+    - scikit-learn
+    - tqdm
+    - seaborn
+    - matplotlib
