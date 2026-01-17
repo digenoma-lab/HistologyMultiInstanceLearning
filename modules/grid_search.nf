@@ -27,6 +27,7 @@ process grid_search {
     tag "${feature_extractor}.${mil}"
     publishDir "${params.outdir}/training/${feature_extractor}.${mil}", mode:"copy", pattern: "test_results_*.csv"
     publishDir "${params.outdir}/predictions/${feature_extractor}.${mil}", mode:"copy", pattern: "predictions_*.csv"
+    publishDir "${params.outdir}/best_params/", mode:"copy", pattern: "best_params_*.json"
     input:
     tuple val(feature_extractor), path(features_path), val(mil), path(grid_params)
     tuple path(dataset), val(target_column), path(splits_dir)
@@ -34,9 +35,10 @@ process grid_search {
     output:
     path("test_results_${feature_extractor}.${mil}.csv"), emit: results
     tuple path("predictions_${feature_extractor}.${mil}_*.csv"), val(feature_extractor), val(mil), emit: predictions
+    path("best_params_${feature_extractor}.${mil}.json"), emit: best_params
     script:
     """
-    python -u $train_script --folds 3 --features_path $features_path \\
+    python -u $train_script --folds 10 --features_path $features_path \\
     --feature_extractor $feature_extractor --splits_dir $splits_dir --csv_path $splits_dir/dataset.csv \\
     --mil $mil --results_dir ./ --grid_params $grid_params
     """
@@ -46,6 +48,7 @@ process grid_search {
     for i in {0..10}; do
         touch predictions_${feature_extractor}.${mil}_\${i}.csv
     done
+    touch best_params_${feature_extractor}.${mil}.json
     """
 }
 
