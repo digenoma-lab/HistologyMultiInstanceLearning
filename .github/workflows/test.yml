@@ -20,7 +20,7 @@ jobs:
       - name: Test pipeline with stub-run
         run: |
           nextflow run main.nf \
-            -params-file params/params_hrr_er.yml \
+            -params-file params/params_stub.yml \
             -stub-run \
             -profile stub
 

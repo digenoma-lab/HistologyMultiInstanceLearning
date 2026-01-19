@@ -1,0 +1,5 @@
+dataset: './params/class_MKI67_ESR1.csv'
+features_dir: "./params/"
+outdir: "./data/"
+target: "target"
+task: "classification"
