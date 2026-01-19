@@ -153,29 +153,27 @@ All outputs are written under `params.outdir` (configured in the selected params
 - **Nextflow** ≥ 22.x
 - Access to Singularity/Wave containers (configured in `nextflow.config`).
 - Cluster with **SLURM** if using the `kutral` profile (default in this repo).
-- Python dependencies (provided via containers or local installation):
-  - `torch`, `numpy`, `pandas`, `h5py`, `scikit-learn`, `tqdm`
-  - Access to **MIL-Lab** repository (see [HistoMILTrainer README](bin/HistoMILTrainer/README.md))
-- R dependencies (provided via containers):
-  - `ggplot2`, `readr`, `dplyr`, `stringr`
-
-> **Note**: You do **not** need to manually install the R dependencies: they are provided through the containers declared in `nextflow.config`. The pipeline uses Wave containers from the Seqera community registry. However, Python dependencies (including MIL-Lab) need to be installed in your environment or provided via a container.
 
 ---
 
 ### Basic usage
 
 1. **Load the environment** where Nextflow and Singularity are available.
-2. **Install HistoMILTrainer dependencies**: Follow the instructions in [bin/HistoMILTrainer/README.md](bin/HistoMILTrainer/README.md) to install MIL-Lab and HistoMIL.
-3. **Configure feature extractors**: Ensure `params/feature_extractors.csv` exists and contains the feature extractor configurations you want to evaluate.
-4. **Configure MIL architectures**: Ensure `params/architectures.csv` exists and contains the MIL architectures you want to evaluate.
-5. **Choose or edit a params file** in `params/` directory:
+2. **Build the Singularity container for [HistoMILTrainer](https://github.com/digenoma-lab/HistoMILTrainer)**: Navigate to the `singularity/` directory and build the container image:
+   ```bash
+   cd singularity/
+   singularity build histomil.sif histomil.def
+   ```
+   This will create the `histomil.sif` image that will be used by Nextflow to run the pipeline processes.
+4. **Configure feature extractors**: Ensure `params/feature_extractors.csv` exists and contains the feature extractor configurations you want to evaluate.
+5. **Configure MIL architectures**: Ensure `params/architectures.csv` exists and contains the MIL architectures you want to evaluate.
+6. **Choose or edit a params file** in `params/` directory:
    - Set `dataset`: path to your CSV with case_id, slide_id, and target columns.
    - Set `features_dir`: base directory where feature directories are located.
    - Set `target`: column name of the target variable (e.g., `target`, `ESR1`, `MKI67`).
    - Set `outdir`: output directory for this run.
    - Set `task`: `"classification"` (currently only classification is supported).
-6. **Run the pipeline**:
+7. **Run the pipeline**:
 
 ```bash
 # HRR ER classification
@@ -252,7 +250,7 @@ results/
 
 2. **Case-level splitting**: The pipeline splits data at the case level to prevent data leakage. Multiple slides from the same case will always be in the same split (train/val/test).
 
-3. **Cross-validation**: The pipeline uses 3-fold cross-validation by default. Each fold generates separate test metrics and predictions.
+3. **Cross-validation**: The pipeline uses 10-fold cross-validation by default. Each fold generates separate test metrics and predictions.
 
 4. **Memory and GPU requirements**: Grid search processes can be memory and GPU-intensive. The default configuration allocates 80G memory, 16 CPUs, and 1 GPU for grid search processes. Adjust in `nextflow.config` if needed.
 
@@ -262,8 +260,6 @@ results/
    ```
 
 6. **Feature format**: Features should be pre-extracted and stored in H5 format. Each slide should have a corresponding `{slide_id}.h5` file containing the `features` array.
-
-7. **MIL-Lab installation**: Make sure MIL-Lab is properly installed and accessible. See [HistoMILTrainer README](bin/HistoMILTrainer/README.md) for installation instructions.
 
 ---
 
