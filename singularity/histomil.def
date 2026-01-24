@@ -25,9 +25,9 @@ From: mambaorg/micromamba:1.5.8
 
     micromamba create -f environment.yml -n env
     micromamba clean --all
-
     # Clean up build temp
     rm -rf /opt/tmp_build
+    
 
 %environment
     export PATH=/opt/conda/envs/env/bin:$PATH
