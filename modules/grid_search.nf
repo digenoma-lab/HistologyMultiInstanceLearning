@@ -128,12 +128,13 @@ process predict {
 }
 
 process heatmap {
-    publishDir "${params.outdir}/heatmaps/${feature_extractor}.${mil}", mode:"copy"
+    publishDir { "${params.outdir}/heatmaps/${feature_extractor}.${mil}/png" }, mode:"copy"
     input:
     tuple val(slide_id), path(slide_folder), path(features_path), path(attention_scores), val(feature_extractor), val(mil)
     output:
     path(slide_id), emit: all
-    tuple val(feature_extractor), val(mil), path("${slide_id}/heatmap_*.png"), emit: heatmap
+    tuple val(feature_extractor), val(mil), val(slide_id), path("${slide_id}/heatmap_*.png"), emit: heatmap
+    path("$slide_id/topk_patches/"), emit: topk_patches
     script:
     """
     histomil-heatmap \\
@@ -150,11 +151,11 @@ process heatmap {
     """
 }
 process convert_tiff {
-    publishDir "${params.outdir}/heatmaps/${feature_extractor}.${mil}", mode:"copy"
+    publishDir "${params.outdir}/heatmaps/${feature_extractor}.${mil}/tiff", mode:"copy", pattern: "*.tiff"
     input:
-    tuple val(feature_extractor), val(mil), path(png)
+    tuple val(feature_extractor), val(mil), val(slide_id), path(png)
     output:
-    path("${png.simpleName}.tiff"), emit: tiff
+    tuple val(feature_extractor), val(mil), path("${png.simpleName}.tiff"), emit: tiff
     script:
     """
     gdal_translate ${png} ${png.simpleName}.tiff \\
@@ -163,10 +164,26 @@ process convert_tiff {
     -co BIGTIFF=YES \\
     -co COMPRESS=JPEG \\
     -co JPEG_QUALITY=90
-    gdaladdo -r average ${png.simpleName}.tiff 2 4 8 16
     """
     stub:
     """
     touch ${png.simpleName}.tiff
+    """
+}
+
+process convert_pyramid {
+    publishDir "${params.outdir}/heatmaps/${feature_extractor}.${mil}/$slide_id", mode:"copy"
+    input:
+    tuple val(feature_extractor), val(mil), val(slide_id), path(tiff)
+    output:
+    path("${tiff.simpleName}_pyramid.tiff"), emit: pyramid
+    script:
+    """
+    bfconvert -pyramid-resolutions 6 -pyramid-scale 2 -compression JPEG \\
+    ${tiff} ${tiff.simpleName}_pyramid.tiff
+    """
+    stub:
+    """
+    touch ${tiff.simpleName}_pyramid.tiff
     """
 }

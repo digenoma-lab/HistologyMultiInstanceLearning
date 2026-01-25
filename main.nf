@@ -7,6 +7,7 @@ include {
     predict;
     heatmap;
     convert_tiff;
+    convert_pyramid;
 } from './modules/grid_search.nf'
 workflow {
     dataset = Channel.value(file(params.dataset))
