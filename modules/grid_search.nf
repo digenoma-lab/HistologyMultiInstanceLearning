@@ -128,13 +128,13 @@ process predict {
 }
 
 process heatmap {
-    publishDir { "${params.outdir}/heatmaps/${feature_extractor}.${mil}/png" }, mode:"copy"
+    publishDir {
+        "${params.outdir}/heatmaps/${feature_extractor}.${mil}/topk_patches/"
+    }, mode:"copy", pattern: "$slide_id/topk_patches/*.png", saveAs: { filename -> "${slide_id}/${filename.split('/')[-1]}" }
     input:
     tuple val(slide_id), path(slide_folder), path(features_path), path(attention_scores), val(feature_extractor), val(mil)
     output:
-    path(slide_id), emit: all
-    tuple val(feature_extractor), val(mil), val(slide_id), path("${slide_id}/heatmap_*.png"), emit: heatmap
-    path("$slide_id/topk_patches/"), emit: topk_patches
+    tuple val(feature_extractor), val(mil), val(slide_id), path("${slide_id}/heatmap_*.png"), path("$slide_id/topk_patches/top_*.png"), emit: heatmap
     script:
     """
     histomil-heatmap \\
@@ -153,12 +153,12 @@ process heatmap {
 process convert_tiff {
     publishDir "${params.outdir}/heatmaps/${feature_extractor}.${mil}/tiff", mode:"copy", pattern: "*.tiff"
     input:
-    tuple val(feature_extractor), val(mil), val(slide_id), path(png)
+    tuple val(feature_extractor), val(mil), val(slide_id), path(heatmap_png), path(topk_patches_png)
     output:
-    tuple val(feature_extractor), val(mil), path("${png.simpleName}.tiff"), emit: tiff
+    tuple val(feature_extractor), val(mil), path("${heatmap_png.simpleName}.tiff"), emit: heatmap_tiff
     script:
     """
-    gdal_translate ${png} ${png.simpleName}.tiff \\
+    gdal_translate ${heatmap_png} ${heatmap_png.simpleName}.tiff \\
     -of GTiff \\
     -co TILED=YES \\
     -co BIGTIFF=YES \\
@@ -167,23 +167,6 @@ process convert_tiff {
     """
     stub:
     """
-    touch ${png.simpleName}.tiff
-    """
-}
-
-process convert_pyramid {
-    publishDir "${params.outdir}/heatmaps/${feature_extractor}.${mil}/$slide_id", mode:"copy"
-    input:
-    tuple val(feature_extractor), val(mil), val(slide_id), path(tiff)
-    output:
-    path("${tiff.simpleName}_pyramid.tiff"), emit: pyramid
-    script:
-    """
-    bfconvert -pyramid-resolutions 6 -pyramid-scale 2 -compression JPEG \\
-    ${tiff} ${tiff.simpleName}_pyramid.tiff
-    """
-    stub:
-    """
-    touch ${tiff.simpleName}_pyramid.tiff
+    touch ${heatmap_png.simpleName}.tiff
     """
 }

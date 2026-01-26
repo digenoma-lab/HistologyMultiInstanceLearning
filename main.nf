@@ -7,7 +7,6 @@ include {
     predict;
     heatmap;
     convert_tiff;
-    convert_pyramid;
 } from './modules/grid_search.nf'
 workflow {
     dataset = Channel.value(file(params.dataset))
@@ -46,5 +45,6 @@ workflow {
     heatmap_tuple = row_dataset.combine(slides_dir)
     heatmap_tuple = heatmap_tuple.combine(predict.out.attention_scores)
     heatmap(heatmap_tuple)
+    //heatmap.out.topk_patches.view()
     convert_tiff(heatmap.out.heatmap)
 }
