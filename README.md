@@ -110,10 +110,14 @@ The workflow is implemented in **Nextflow DSL2** and uses containers (Wave/Singu
     - `features`: Array of shape `(num_patches, feature_dim)`
     - Optionally: `coords`: Array of patch coordinates
 
+- **Slides directory** (`params.slides_dir`)
+  - Base directory path where WSIs directories are located.
+
 - **Pipeline parameters** (YAML files in `params/`)
   - The key parameters are:
     - `dataset`: path to the CSV with case_id, slide_id, and target columns.
     - `features_dir`: base directory path where feature directories are located.
+    - `slides_dir`: base directory path where WSIs are located.
     - `outdir`: output directory for this run (default: `./results/`).
     - `target`: column name of the target variable (e.g., `target`, `ESR1`, `MKI67`).
     - `task`: `"classification"` (currently only classification is supported).
@@ -123,6 +127,7 @@ The workflow is implemented in **Nextflow DSL2** and uses containers (Wave/Singu
       ```yaml
       dataset: '/path/to/class_dataset_er.csv'
       features_dir: "/path/to/features/base/directory/"
+      features_dir: "/path/to/slides/base/directory/"
       outdir: "./results_hrr_er/"
       target: "target"
       task: "classification"
