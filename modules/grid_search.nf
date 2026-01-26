@@ -37,7 +37,7 @@ process grid_search {
     tuple path(dataset), path(features_path), path("best_params_${feature_extractor}.${mil}.json"), path("*best_model.pt"), val(feature_extractor), val(mil), emit: best_model_params
     script:
     """
-    histomil-grid --folds 3 --features_path $features_path \\
+    histomil-grid --folds 10 --features_path $features_path \\
     --feature_extractor $feature_extractor --splits_dir $splits_dir --csv_path $splits_dir/dataset.csv \\
     --mil $mil --results_dir ./
     """
