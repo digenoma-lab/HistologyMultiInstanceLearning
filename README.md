@@ -23,19 +23,33 @@ The workflow is implemented in **Nextflow DSL2** and uses containers (Wave/Singu
     - `grid_search`: runs grid-search for each `feature_extractor × MIL architecture` combination with cross-validation.
     - `concat_results`: concatenates all test metrics into a single summary file.
     - `boxplot_auc`: generates a global performance boxplot (ROC AUC).
+    - `roc_auc_curve`: generates ROC AUC curves for each configuration.
+    - `heatmap_workflow`:
+      - `select_best_config`: selects the best configuration based on validation AUC.
+      - `predict`: generates attention scores and predictions for the best model.
+      - `heatmap`: creates heatmap visualizations for top-k patches.
+      - `convert_tiff`: converts heatmaps to TIFF format.
 
 - **`modules/grid_search.nf`**
-  - `process split_dataset`: runs `bin/HistoMILTrainer/make_splits.py` to create train/val/test splits for cross-validation at the case level.
-  - `process grid_search`: runs `bin/HistoMILTrainer/grid_search.py` for each `feature_extractor × MIL architecture` combination and publishes:
+  - `process split_dataset`: runs `histomil-splits` to create train/val/test splits for cross-validation at the case level.
+  - `process grid_search`: runs `histomil-grid` for each `feature_extractor × MIL architecture` combination and publishes:
     - `test_results_*.csv` (test set metrics per fold)
     - `predictions_*.csv` (test set predictions per fold)
   - `process concat_results`: concatenates all test metrics into a single `summary.csv` file.
+
+- **`modules/plots.nf`**
   - `process boxplot_auc`: generates a boxplot comparing ROC AUC across all configurations using `bin/boxplot_auc.R`.
+  - `process roc_auc_curve`: generates ROC AUC curves using `bin/roc_auc_curve.R`.
+
+- **`modules/heatmaps.nf`**
+  - `process select_best_config`: identifies the best hyperparameter configuration based on validation metrics.
+  - `process predict`: runs `histomil-predict` to generate predictions and attention scores using the best model.
+  - `process heatmap`: runs `histomil-heatmap` to visualize attention scores as heatmaps on slide images.
+  - `process convert_tiff`: converts generated heatmap images to tiled BigTIFF format using `gdal_translate`.
 
 - **`bin/`**
-  - `HistoMILTrainer/make_splits.py`: creates train/val/test splits for cross-validation at the case level (prevents data leakage).
-  - `HistoMILTrainer/grid_search.py`: trains MIL models with cross-validation, performs hyperparameter grid search, and saves results and predictions.
   - `boxplot_auc.R`: reads the `summary.csv` file and generates a ROC AUC `boxplot.png` comparing performance across feature extractors and MIL architectures.
+  - `roc_auc_curve.R`: plots ROC curves for model predictions.
 
 ---
 
@@ -140,8 +154,18 @@ All outputs are written under `params.outdir` (configured in the selected params
       - `splits_{fold}_descriptor.csv` (summary statistics for each split).
 
 - **Plots**
-  - `plots/boxplot.png`:  
-    Distribution of ROC AUC by `feature_extractor` and `mil` architecture.
+  - `plots/`
+    - `boxplot.png`: Distribution of ROC AUC by `feature_extractor` and `mil` architecture.
+    - `*.roc_auc.png`: ROC AUC curves for each configuration.
+
+- **Heatmaps**
+  - `heatmaps/{feature_extractor}.{mil}/`
+    - `attention_scores/`: H5 files containing attention scores.
+    - `predictions.csv`: Predictions for the best model.
+    - `topk_patches/`:
+      - `{slide_id}/heatmap_*.png`: Attention heatmap overlay.
+      - `{slide_id}/topk_patches/top_*.png`: Highest attention patches.
+    - `tiff/`: Converted BigTIFF heatmaps.
 
 - **Pipeline information**
   - `pipeline_info/` (timeline, report, trace, DAG HTML) generated automatically by Nextflow.
@@ -234,7 +258,15 @@ results/
 │   │   └── ...
 │   └── ...
 ├── plots/                     # Generated plots
-│   └── boxplot.png            # ROC AUC comparison boxplot
+│   ├── boxplot.png            # ROC AUC comparison boxplot
+│   └── *.roc_auc.png          # ROC curves
+├── heatmaps/                  # Attention heatmaps and predictions
+│   ├── {feature_extractor}.{mil}/
+│   │   ├── attention_scores/
+│   │   ├── predictions.csv
+│   │   ├── topk_patches/
+│   │   └── tiff/
+│   └── ...
 └── pipeline_info/              # Nextflow execution reports
     ├── execution_report_*.html
     ├── execution_timeline_*.html
