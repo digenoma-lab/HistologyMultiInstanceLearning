@@ -1,13 +1,12 @@
 include {
-    split_dataset;
-    concat_results;
-    boxplot_auc;
-    grid_search;
-    roc_auc_curve;
-    predict;
-    heatmap;
-    convert_tiff;
-} from './modules/grid_search.nf'
+    grid_search_workflow;
+} from './workflows/grid_search.nf'
+include {
+    plots;
+} from './workflows/plots.nf'
+include {
+    heatmap_workflow;
+} from './workflows/heatmap.nf'
 workflow {
     dataset = Channel.value(file(params.dataset))
     feature_extractors = Channel.fromPath("${projectDir}/params/feature_extractors.csv")
@@ -33,18 +32,14 @@ workflow {
     script_roc_auc = Channel.value(file("${projectDir}/bin/roc_auc_curve.R"))
 
     slides_dir = Channel.fromPath(params.slides_dir)
-    split_dataset(dataset, params.target)
-    grid_search(configs, split_dataset.out.splits)
-    concat_results(grid_search.out.results.collect())
-    boxplot_auc(concat_results.out.summary, script_boxplot)
-    roc_auc_curve(grid_search.out.predictions, script_roc_auc)
-    predict(grid_search.out.best_model_params)
-    row_dataset = dataset.splitCsv(header: true, sep: ',').map { row ->
-        row.slide_id
-    }
-    heatmap_tuple = row_dataset.combine(slides_dir)
-    heatmap_tuple = heatmap_tuple.combine(predict.out.attention_scores)
-    heatmap(heatmap_tuple)
-    //heatmap.out.topk_patches.view()
-    convert_tiff(heatmap.out.heatmap)
+
+    grid_search_workflow(dataset, params.target, configs)
+
+    plots(grid_search_workflow.out.summary,
+        grid_search_workflow.out.predictions,
+        script_boxplot, script_roc_auc)
+
+    heatmap_workflow(grid_search_workflow.out.summary,
+        grid_search_workflow.out.best_model_params,
+        slides_dir, dataset)
 }

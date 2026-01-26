@@ -46,6 +46,7 @@ process grid_search {
     touch test_results_${feature_extractor}.${mil}.csv
     for i in {0..10}; do
         touch predictions_${feature_extractor}.${mil}_\${i}.csv
+        touch \${i}-best_model.pt
     done
     touch best_params_${feature_extractor}.${mil}.json
     """
@@ -66,107 +67,5 @@ process concat_results {
     stub:
     """
     touch summary.csv
-    """
-}
-process boxplot_auc {
-    publishDir "${params.outdir}/plots/", mode:"copy"
-    input:
-    path(summary_file)
-    path(script_boxplot)
-    output:
-    path("boxplot.png"), emit: plot
-    script:
-    """
-    Rscript $script_boxplot
-    """
-    stub:
-    """
-    touch boxplot.png
-    """
-}
-
-process roc_auc_curve {
-    publishDir "${params.outdir}/plots/", mode:"copy"
-    input:
-    tuple path(predictions_files), val(feature_extractor), val(mil)
-    path(script_roc_auc)
-    output:
-    path("${feature_extractor}.${mil}.roc_auc.png"), emit: plot
-    script:
-    """
-    Rscript $script_roc_auc $predictions_files ${feature_extractor}.${mil}.roc_auc.png
-    """
-    stub:
-    """
-    touch ${feature_extractor}.${mil}.roc_auc.png
-    """
-}
-
-process predict { 
-    publishDir "${params.outdir}/heatmaps/${feature_extractor}.${mil}", mode:"copy", pattern: "attention_scores"
-    publishDir "${params.outdir}/heatmaps/${feature_extractor}.${mil}", mode:"copy", pattern: "predictions.csv"
-    input:
-    tuple path(dataset), path(features_path), path(best_params), path(best_model), val(feature_extractor), val(mil)
-    output:
-    tuple path(features_path), path("attention_scores"), val(feature_extractor), val(mil), emit: attention_scores
-    path("predictions.csv"), emit: predictions
-    script:
-    """
-    histomil-predict --csv_path $dataset \\
-    --params_path $best_params --weights_path ${best_model[0]} \\
-    --features_folder $features_path \\
-    --feature_extractor $feature_extractor \\
-    --mil $mil \\
-    --results_dir ./
-    """
-    stub:
-    """
-    touch predictions.csv
-    mkdir -p attention_scores/
-    touch attention_scores/attention_scores.h5
-    """
-}
-
-process heatmap {
-    publishDir {
-        "${params.outdir}/heatmaps/${feature_extractor}.${mil}/topk_patches/"
-    }, mode:"copy", pattern: "$slide_id/topk_patches/*.png", saveAs: { filename -> "${slide_id}/${filename.split('/')[-1]}" }
-    input:
-    tuple val(slide_id), path(slide_folder), path(features_path), path(attention_scores), val(feature_extractor), val(mil)
-    output:
-    tuple val(feature_extractor), val(mil), val(slide_id), path("${slide_id}/heatmap_*.png"), path("$slide_id/topk_patches/top_*.png"), emit: heatmap
-    script:
-    """
-    histomil-heatmap \\
-    --slide_id $slide_id \\
-    --slide_folder $slide_folder \\
-    --features_folder $features_path \\
-    --attn_scores_folder $attention_scores \\
-    --results_dir ${slide_id}
-    """
-    stub:
-    """
-    mkdir -p  ${slide_id}/
-    touch ${slide_id}/heatmap.png
-    """
-}
-process convert_tiff {
-    publishDir "${params.outdir}/heatmaps/${feature_extractor}.${mil}/tiff", mode:"copy", pattern: "*.tiff"
-    input:
-    tuple val(feature_extractor), val(mil), val(slide_id), path(heatmap_png), path(topk_patches_png)
-    output:
-    tuple val(feature_extractor), val(mil), path("${heatmap_png.simpleName}.tiff"), emit: heatmap_tiff
-    script:
-    """
-    gdal_translate ${heatmap_png} ${heatmap_png.simpleName}.tiff \\
-    -of GTiff \\
-    -co TILED=YES \\
-    -co BIGTIFF=YES \\
-    -co COMPRESS=JPEG \\
-    -co JPEG_QUALITY=90
-    """
-    stub:
-    """
-    touch ${heatmap_png.simpleName}.tiff
     """
 }

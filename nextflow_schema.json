@@ -30,6 +30,15 @@
           "fa_icon": "fas fa-folder-open",
           "errorMessage": "The features directory path must be at least 1 character long."
         },
+        "slides_dir": {
+          "type": "string",
+          "format": "directory-path",
+          "minLength": 1,
+          "description": "Base directory path where slides are located",
+          "help_text": "Base directory path used to construct slide paths. Slide paths follow the pattern: {slides_dir}/{slide_id}.svs",
+          "fa_icon": "fas fa-folder-open",
+          "errorMessage": "The slides directory path must be at least 1 character long."
+        },
         "outdir": {
           "type": "string",
           "format": "directory-path",
@@ -43,7 +52,8 @@
       },
       "required": [
         "dataset",
-        "features_dir"
+        "features_dir",
+        "slides_dir"
       ]
     },
     "ml_options": {
