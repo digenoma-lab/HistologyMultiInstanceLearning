@@ -10,23 +10,9 @@ workflow heatmap_workflow {
     best_model_params
     slides_dir
     dataset
+    
     main:
-    select_best_config(summary)
-    best_model = best_model_params
-        .combine(select_best_config.out.best_config)
-        .filter{item -> 
-            def match = item[4] == item[6] &&
-                        item[5] == item[7]
-            match
-        }
-        .map { item ->
-                tuple(
-                    item[0], item[1], item[2],
-                    item[3], item[4], item[5]
-                )
-            }
-
-    predict(best_model)
+    predict(best_model_params)
     row_dataset = dataset.splitCsv(header: true, sep: ',').map { row ->
         row.slide_id
     }

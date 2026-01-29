@@ -59,9 +59,11 @@ process predict {
 }
 
 process heatmap {
-    publishDir {
+    /* publishDir {
         "${params.outdir}/heatmaps/${feature_extractor}.${mil}/topk_patches/"
-    }, mode:"copy", pattern: "$slide_id/topk_patches/*.png", saveAs: { filename -> "${slide_id}/${filename.split('/')[-1]}" }
+    }, mode:"copy", pattern: "$task.slide_id/topk_patches/*.png", saveAs: {
+        filename -> "${task.slide_id}/${filename.split('/')[-1]}"
+    } */
     input:
     tuple val(slide_id), path(slide_folder), path(features_path), path(attention_scores), val(feature_extractor), val(mil)
     output:
