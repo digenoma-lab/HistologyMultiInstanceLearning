@@ -87,10 +87,11 @@ process heatmap {
 }
 process convert_tiff {
     publishDir "${params.outdir}/heatmaps/${feature_extractor}.${mil}/tiff", mode:"copy", pattern: "*.tiff"
+    publishDir "${params.outdir}/heatmaps/${feature_extractor}.${mil}/topk_patches/${slide_id}", mode:"copy", pattern: "top_*.png"
     input:
     tuple val(feature_extractor), val(mil), val(slide_id), path(heatmap_png), path(topk_patches_png)
     output:
-    tuple val(feature_extractor), val(mil), path("${heatmap_png.simpleName}.tiff"), emit: heatmap_tiff
+    tuple val(feature_extractor), val(mil), path("${heatmap_png.simpleName}.tiff"), path(topk_patches_png), emit: heatmap_tiff
     script:
     """
     gdal_translate ${heatmap_png} ${heatmap_png.simpleName}.tiff \\
