@@ -77,14 +77,7 @@ process heatmap {
     tuple val(feature_extractor), val(mil), val(slide_id), path("${slide_id}/heatmap_*.png"), path("$slide_id/topk_patches/top_*.png"), emit: heatmap
     script:
     """
-    if [ -n "\${HISTOMIL_ENV_BIN:-}" ]; then
-        export PYTHONPATH="\${HISTOMIL_CODE_DIR:-}:\${PYTHONPATH:-}"
-        HMT_HEATMAP="\${HISTOMIL_ENV_BIN}/histomil-heatmap"
-    else
-        HMT_HEATMAP="histomil-heatmap"
-    fi
-
-    "\$HMT_HEATMAP" \\
+    histomil-heatmap \\
     --slide_id $slide_id \\
     --slide_folder $slide_folder \\
     --features_folder $features_path \\

@@ -7,14 +7,7 @@ process split_dataset {
         tuple path(dataset), val(target_column), path(target_column), emit: splits
     script:
         """
-        if [ -n "\${histomil_env_bin:-}" ]; then
-            export PYTHONPATH="\${histomil_code_dir:-}:\${PYTHONPATH:-}"
-            hmt_splits="\${histomil_env_bin}/histomil-splits"
-        else
-            hmt_splits="histomil-splits"
-        fi
-
-        "\$hmt_splits" --csv_path $dataset --target $target_column \\
+        histomil-splits --csv_path $dataset --target $target_column \\
         --output_name $target_column --splits_dir ./
         """
     stub:
@@ -43,15 +36,6 @@ process grid_search {
         tuple path(dataset), path(features_path), path("best_params_${feature_extractor}.${mil}.json"), path("*best_model.pt"), val(feature_extractor), val(mil), emit: best_model_params
     script:
         """
-        if [ -n "\${histomil_env_bin:-}" ]; then
-            export PYTHONPATH="\${histomil_code_dir:-}:\${PYTHONPATH:-}"
-            hmt_grid="\${histomil_env_bin}/histomil-grid"
-            hmt_train="\${histomil_env_bin}/histomil-train"
-        else
-            hmt_grid="histomil-grid"
-            hmt_train="histomil-train"
-        fi
-
         if [ -n "${grid_params}" ] || [ "${transfer_mode}" != "scratch" ]; then
             test -f "${grid_params}" || { echo "ERROR: params not found: ${grid_params}"; exit 1; }
 
@@ -62,11 +46,11 @@ process grid_search {
                 extra_args="\$extra_args --pretrained_checkpoint ${checkpoint}"
             fi
 
-            "\$hmt_train" --folds ${folds} --features_path $features_path \
+            histomil-train --folds ${folds} --features_path $features_path \
             --feature_extractor $feature_extractor --splits_dir $splits_dir --csv_path $splits_dir/dataset.csv \
             --mil $mil --results_dir ./ --params_path ${grid_params} \$extra_args
         else
-            "\$hmt_grid" --folds ${folds} --features_path $features_path \
+            histomil-grid--folds ${folds} --features_path $features_path \
             --feature_extractor $feature_extractor --splits_dir $splits_dir --csv_path $splits_dir/dataset.csv \
             --mil $mil --results_dir ./
         fi

@@ -1,9 +1,0 @@
-dataset: "/mnt/beegfs/home/amolina/Fase_2/HMIL_prueba/HistologyMultiInstanceLearningTransfer/params/class_KI67_TCGA_pretask.csv"
-features_dir: "/mnt/beegfs/labs/ia-uoh/processed_data/trident/tcga-brca/"
-slides_dir: "/mnt/beegfs/labs/ia-uoh/data/tcga-gdc/images/tcga_brca/"
-outdir: "/mnt/beegfs/home/amolina/repositorios/TCGA_KI_MAG/results/"
-target: "target"
-task: "classification"
-folds: 1
-transfer_mode: "scratch"
-best_params_dir: "/mnt/beegfs/home/amolina/RESULTADOS_BUENOS_repos_tesis/HRR/HRR_KI/HRR_exc_KI_MIL/results/best_params"

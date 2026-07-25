@@ -1,6 +1,0 @@
-dataset: '/mnt/beegfs/home/g.cabas/hrr_scanner/datasets/class_dataset_er.csv'
-features_dir: "/mnt/beegfs/home/g.cabas/hrr_scanner/processed_data/"
-outdir: "./results_hrr_er/"
-target: "target"
-task: "classification"
-slides_dir: "/mnt/beegfs/labs/hrr_scanner/HE_pyramid/result/"
