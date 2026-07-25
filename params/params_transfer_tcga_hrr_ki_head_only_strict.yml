@@ -1,0 +1,12 @@
+dataset: "/mnt/beegfs/home/amolina/Fase_3/HMIL_TESIS/HistologyMultiInstanceLearningTransfer/params/class_dataset_ki_HRR.csv"
+features_dir: "/mnt/beegfs/home/amolina/hrr_scanner/processed_data/trident(mag_corrected)/"
+slides_dir: "/mnt/beegfs/home/amolina/hrr_scanner/processed_data/HE_pyramid(mag_corrected)/result/"
+outdir: "/mnt/beegfs/home/amolina/Fase_3/MIL_transfer_tesis/TCGA_HRR_ki_strict/head_only/results/"
+target: "target"
+task: "classification"
+folds: 5
+
+best_params_dir: "/mnt/beegfs/home/amolina/RESULTADOS_BUENOS_repos_tesis/TCGA/TCGA_KI/results_strict/best_params"
+checkpoint_results_dir: "/mnt/beegfs/home/amolina/RESULTADOS_BUENOS_repos_tesis/TCGA/TCGA_KI/results_strict/"
+transfer_mode: "head_only"
+checkpoint_fold: 0

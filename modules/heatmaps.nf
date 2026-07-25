@@ -43,7 +43,14 @@ process predict {
     path("predictions.csv"), emit: predictions
     script:
     """
-    histomil-predict --csv_path $dataset \\
+    if [ -n "\${HISTOMIL_ENV_BIN:-}" ]; then
+        export PYTHONPATH="\${HISTOMIL_CODE_DIR:-}:\${PYTHONPATH:-}"
+        HMT_PREDICT="\${HISTOMIL_ENV_BIN}/histomil-predict"
+    else
+        HMT_PREDICT="histomil-predict"
+    fi
+
+    "\$HMT_PREDICT" --csv_path $dataset \\
     --params_path $best_params --weights_path ${best_model[0]} \\
     --features_folder $features_path \\
     --feature_extractor $feature_extractor \\
@@ -70,7 +77,14 @@ process heatmap {
     tuple val(feature_extractor), val(mil), val(slide_id), path("${slide_id}/heatmap_*.png"), path("$slide_id/topk_patches/top_*.png"), emit: heatmap
     script:
     """
-    histomil-heatmap \\
+    if [ -n "\${HISTOMIL_ENV_BIN:-}" ]; then
+        export PYTHONPATH="\${HISTOMIL_CODE_DIR:-}:\${PYTHONPATH:-}"
+        HMT_HEATMAP="\${HISTOMIL_ENV_BIN}/histomil-heatmap"
+    else
+        HMT_HEATMAP="histomil-heatmap"
+    fi
+
+    "\$HMT_HEATMAP" \\
     --slide_id $slide_id \\
     --slide_folder $slide_folder \\
     --features_folder $features_path \\

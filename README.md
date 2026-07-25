@@ -8,6 +8,8 @@
 
 The workflow is implemented in **Nextflow DSL2** and uses containers (Wave/Singularity) to run both the Python part (MIL training and grid search) and the R part (visualizations).
 
+The pipeline also supports **transfer learning from previously trained MIL checkpoints**, reusing the best hyperparameter configuration associated with each `feature_extractor × MIL architecture` combination.
+
 ---
 
 ### Pipeline overview
@@ -18,9 +20,10 @@ The workflow is implemented in **Nextflow DSL2** and uses containers (Wave/Singu
   - Reads the list of feature extractors from `params/feature_extractors.csv` (automatically loaded).
   - Reads the list of MIL architectures from `params/architectures.csv` (automatically loaded).
   - Uses `params.features_dir` to construct feature directory paths.
+  - Resolves transfer-learning checkpoints and best-parameter files when checkpoint-based training is enabled.
   - Launches:
     - `split_dataset`: splits the dataset into train/val/test folds for cross-validation at the case level.
-    - `grid_search`: runs grid-search for each `feature_extractor × MIL architecture` combination with cross-validation.
+    - `grid_search`: runs grid-search for each `feature_extractor × MIL architecture` combination with cross-validation, using scratch or checkpoint-based training.
     - `concat_results`: concatenates all test metrics into a single summary file.
     - `boxplot_auc`: generates a global performance boxplot (ROC AUC).
     - `roc_auc_curve`: generates ROC AUC curves for each configuration.
@@ -32,7 +35,7 @@ The workflow is implemented in **Nextflow DSL2** and uses containers (Wave/Singu
 
 - **`modules/grid_search.nf`**
   - `process split_dataset`: runs `histomil-splits` to create train/val/test splits for cross-validation at the case level.
-  - `process grid_search`: runs `histomil-grid` for each `feature_extractor × MIL architecture` combination and publishes:
+  - `process grid_search`: runs `histomil-grid` for each `feature_extractor × MIL architecture` combination, forwards the selected transfer-learning mode, and publishes:
     - `test_results_*.csv` (test set metrics per fold)
     - `predictions_*.csv` (test set predictions per fold)
   - `process concat_results`: concatenates all test metrics into a single `summary.csv` file.
@@ -121,17 +124,62 @@ The workflow is implemented in **Nextflow DSL2** and uses containers (Wave/Singu
     - `outdir`: output directory for this run (default: `./results/`).
     - `target`: column name of the target variable (e.g., `target`, `ESR1`, `MKI67`).
     - `task`: `"classification"` (currently only classification is supported).
+    - `folds`: number of cross-validation folds.
+    - `transfer_mode`: training mode (`scratch`, `head_only`, or `partial`).
+    - `checkpoint_results_dir`: root directory containing pretrained MIL models and their best-parameter files.
+    - `checkpoint_fold`: source fold used to select the pretrained checkpoint.
 
   - Example:
     - **HRR ER classification** (`params/params_hrr_er.yml`):
       ```yaml
-      dataset: '/path/to/class_dataset_er.csv'
+      dataset: "/path/to/class_dataset_er.csv"
       features_dir: "/path/to/features/base/directory/"
-      features_dir: "/path/to/slides/base/directory/"
+      slides_dir: "/path/to/slides/base/directory/"
       outdir: "./results_hrr_er/"
       target: "target"
       task: "classification"
+      folds: 5
+      transfer_mode: "scratch"
       ```
+
+---
+
+### Transfer learning
+
+The pipeline supports three training modes:
+
+- **`scratch`**: trains the selected MIL architecture from random initialization.
+- **`head_only`**: loads compatible weights from a pretrained checkpoint and trains only the classification heads.
+- **`partial`**: loads a pretrained checkpoint and trains the architecture-specific subset of MIL layers defined in HistoMILTrainer.
+
+The `partial` mode uses a standard configuration defined for each MIL architecture in HistoMILTrainer.
+
+For checkpoint-based modes, `checkpoint_results_dir` should contain the best parameters and model checkpoints produced by a previous pipeline execution:
+
+```text
+checkpoint_results_dir/
+├── best_params/
+│   └── best_params_{feature_extractor}.{mil}.json
+└── models/
+    └── {feature_extractor}.{mil}/
+        └── {checkpoint_fold}_best_model.pt
+```
+
+Example:
+
+```yaml
+dataset: "/path/to/dataset.csv"
+features_dir: "/path/to/features/"
+slides_dir: "/path/to/slides/"
+outdir: "./results_transfer/"
+target: "target"
+task: "classification"
+folds: 5
+
+checkpoint_results_dir: "/path/to/pretrained/results/"
+transfer_mode: "head_only"
+checkpoint_fold: 0
+```
 
 ---
 
@@ -182,27 +230,31 @@ All outputs are written under `params.outdir` (configured in the selected params
 - **Nextflow** ≥ 22.x
 - Access to Singularity/Wave containers (configured in `nextflow.config`).
 - Cluster with **SLURM** if using the `kutral` profile (default in this repo).
+- [HistoMILTrainer transfer-learning branch](https://github.com/alanEmolina/HistoMILTrainer/tree/feature/mil-transfer-learning) for checkpoint-based training modes.
 
 ---
 
 ### Basic usage
 
 1. **Load the environment** where Nextflow and Singularity are available.
-2. **Build the Singularity container for [HistoMILTrainer](https://github.com/digenoma-lab/HistoMILTrainer)**: Navigate to the `singularity/` directory and build the container image:
+2. **Build the Singularity container for [HistoMILTrainer](https://github.com/alanEmolina/HistoMILTrainer/tree/feature/mil-transfer-learning)**: Navigate to the `singularity/` directory and build the container image:
    ```bash
    cd singularity/
    singularity build histomil.sif histomil.def
    ```
    This will create the `histomil.sif` image that will be used by Nextflow to run the pipeline processes.
-4. **Configure feature extractors**: Ensure `params/feature_extractors.csv` exists and contains the feature extractor configurations you want to evaluate.
-5. **Configure MIL architectures**: Ensure `params/architectures.csv` exists and contains the MIL architectures you want to evaluate.
-6. **Choose or edit a params file** in `params/` directory:
+3. **Configure feature extractors**: Ensure `params/feature_extractors.csv` exists and contains the feature extractor configurations you want to evaluate.
+4. **Configure MIL architectures**: Ensure `params/architectures.csv` exists and contains the MIL architectures you want to evaluate.
+5. **Choose or edit a params file** in `params/` directory:
    - Set `dataset`: path to your CSV with case_id, slide_id, and target columns.
    - Set `features_dir`: base directory where feature directories are located.
    - Set `target`: column name of the target variable (e.g., `target`, `ESR1`, `MKI67`).
    - Set `outdir`: output directory for this run.
    - Set `task`: `"classification"` (currently only classification is supported).
-7. **Run the pipeline**:
+   - Set `folds`: number of cross-validation folds.
+   - Set `transfer_mode`: `scratch`, `head_only`, or `partial`.
+   - For checkpoint-based modes, set `checkpoint_results_dir` and `checkpoint_fold`.
+6. **Run the pipeline**:
 
 ```bash
 # HRR ER classification
@@ -216,6 +268,12 @@ For **local execution** (without SLURM), you can use the `local` profile defined
 
 ```bash
 nextflow run main.nf -profile local -params-file params/params_hrr_er.yml
+```
+
+Checkpoint-based runs use the same command with a YAML file configured for `head_only` or `partial`:
+
+```bash
+nextflow run main.nf -profile kutral -params-file params/params_hrr_er_transfer.yml
 ```
 
 ### Supported MIL architectures
@@ -232,7 +290,7 @@ The pipeline supports multiple state-of-the-art MIL architectures from [MIL-Lab]
 - **TransMIL**: Transductive Multiple Instance Learning
 - **WIKG**: Weighted Instance Knowledge Graph
 
-Each architecture can be configured via JSON files in `bin/HistoMILTrainer/configs/`. The pipeline uses 3-fold cross-validation by default (configurable in `grid_search.py`).
+Each architecture can be configured through the HistoMILTrainer JSON files in `histomil/configs/req_grid/`. These files also define the trainable MIL layers used by `partial` transfer learning. The number of cross-validation folds is configured with `folds` in the selected YAML file.
 
 > **Note**: CLAM automatically sets batch_size to 1 during training. Make sure MIL-Lab is properly installed and accessible in your Python path.
 
@@ -287,7 +345,7 @@ results/
 
 2. **Case-level splitting**: The pipeline splits data at the case level to prevent data leakage. Multiple slides from the same case will always be in the same split (train/val/test).
 
-3. **Cross-validation**: The pipeline uses 10-fold cross-validation by default. Each fold generates separate test metrics and predictions.
+3. **Cross-validation**: Configure the number of folds with the `folds` parameter in the selected YAML file. Each fold generates separate test metrics and predictions.
 
 4. **Memory and GPU requirements**: Grid search processes can be memory and GPU-intensive. The default configuration allocates 80G memory, 16 CPUs, and 1 GPU for grid search processes. Adjust in `nextflow.config` if needed.
 
@@ -297,6 +355,8 @@ results/
    ```
 
 6. **Feature format**: Features should be pre-extracted and stored in H5 format. Each slide should have a corresponding `{slide_id}.h5` file containing the `features` array.
+
+7. **Transfer-learning inputs**: Keep the `best_params/` and `models/` directories from the source execution together under `checkpoint_results_dir`, using matching feature extractor and MIL architecture names.
 
 ---
 

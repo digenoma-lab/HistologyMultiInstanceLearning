@@ -1,0 +1,6 @@
+dataset: '/mnt/beegfs/home/amolina/repositorios/HistologyMultiInstanceLearning/params/class_dataset_ki_HRR.csv'
+features_dir: "/mnt/beegfs/home/amolina/hrr_scanner/processed_data/trident(mag_corrected)/"
+slides_dir: "/mnt/beegfs/home/amolina/hrr_scanner/processed_data/HE_pyramid(mag_corrected)/result/"
+outdir: "/mnt/beegfs/home/amolina/repositorios/HRR_KI/exec/results/"
+target: "target"
+task: "classification"
