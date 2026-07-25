@@ -43,14 +43,7 @@ process predict {
     path("predictions.csv"), emit: predictions
     script:
     """
-    if [ -n "\${HISTOMIL_ENV_BIN:-}" ]; then
-        export PYTHONPATH="\${HISTOMIL_CODE_DIR:-}:\${PYTHONPATH:-}"
-        HMT_PREDICT="\${HISTOMIL_ENV_BIN}/histomil-predict"
-    else
-        HMT_PREDICT="histomil-predict"
-    fi
-
-    "\$HMT_PREDICT" --csv_path $dataset \\
+    histomil-predict --csv_path $dataset \\
     --params_path $best_params --weights_path ${best_model[0]} \\
     --features_folder $features_path \\
     --feature_extractor $feature_extractor \\
