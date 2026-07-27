@@ -67,7 +67,10 @@ workflow {
 
     script_boxplot = Channel.value(file("${projectDir}/bin/boxplot_auc.R"))
     script_roc_auc = Channel.value(file("${projectDir}/bin/roc_auc_curve.R"))
-    slides_dir = Channel.fromPath(params.slides_dir)
+    do_heatmap = Channel.value(params.heatmap)
+    slides_dir = params.slides_dir
+        ? Channel.fromPath(params.slides_dir)
+        : Channel.empty()
 
     training_workflow(dataset, params.target, grid_configs, train_configs)
 
@@ -82,6 +85,7 @@ workflow {
         training_workflow.out.summary,
         training_workflow.out.best_model_params,
         slides_dir,
-        dataset
+        dataset,
+        do_heatmap
     )
 }

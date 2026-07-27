@@ -10,3 +10,4 @@ transfer_mode: "head_only"
 best_params_dir: "./data/stub_source/best_params/"
 checkpoint_results_dir: "./data/stub_source/"
 checkpoint_fold: 0
+heatmap: false
