@@ -6,7 +6,7 @@
 
 **Multi-Instance Learning (MIL) pipeline** for histopathology to evaluate different **MIL architectures** (ABMIL, CLAM, DSMIL, etc.) using pre-extracted features from **foundation models** (for example, *uni_v2* and *virchow2*).
 
-The workflow is implemented in **Nextflow DSL2** and uses containers (Wave/Singularity) to execute both the Python components for MIL training and grid search and the R components for result visualization.
+The workflow is implemented in **Nextflow DSL2** and runs on the host environment (micromamba + pip): Python tools from [HistoMILTrainer](https://github.com/digenoma-lab/HistoMILTrainer), R scripts for plots, and GDAL for heatmap TIFF export. No Singularity or Docker images are required.
 
 The pipeline also supports **transfer learning from previously trained MIL checkpoints**, reusing the best hyperparameter configuration associated with each `feature_extractor × MIL architecture` combination.
 
@@ -20,27 +20,30 @@ The pipeline also supports **transfer learning from previously trained MIL check
   - Reads the list of feature extractors from `params/feature_extractors.csv`.
   - Reads the list of MIL architectures from `params/architectures.csv`.
   - Uses `params.features_dir` to construct the feature directory associated with each patch encoder.
-  - Reads the selected training mode from `params.transfer_mode`.
-  - Resolves the best-parameter file and pretrained checkpoint for each `feature_extractor × MIL architecture` combination when checkpoint-based training is enabled.
+  - Reads the training mode from `params.mode` (`grid` or `train`).
+  - Uses `params.transfer_mode`, `params.checkpoint_results_dir`, and `params.best_params_dir` when `mode=train`.
+  - Skips PNG/TIFF heatmaps when `params.heatmap` is `false` (attention scores are still produced by `predict`).
   - Launches:
     - `split_dataset`: splits the dataset into train, validation, and test folds at the case level.
-    - `grid_search`: runs the grid search for each `feature_extractor × MIL architecture` combination using scratch or checkpoint-based training.
+    - `grid_search` (when `mode=grid`): hyperparameter grid search for each `feature_extractor × MIL architecture` combination.
+    - `train` (when `mode=train`): training with fixed hyperparameters from a prior grid search or transfer-learning checkpoint.
     - `concat_results`: concatenates all test metrics into a single summary file.
     - `boxplot_auc`: generates a global ROC AUC boxplot.
     - `roc_auc_curve`: generates ROC AUC curves for each configuration.
     - `heatmap_workflow`:
-      - `select_best_config`: selects the best configuration based on validation AUC.
-      - `predict`: generates predictions and attention scores for the selected model.
-      - `heatmap`: creates heatmap visualizations for the highest-attention patches.
-      - `convert_tiff`: converts generated heatmaps to TIFF format.
+      - `predict`: generates predictions and attention scores for each trained configuration.
+      - `heatmap` (only if `params.heatmap=true`): creates heatmap visualizations for the highest-attention patches.
+      - `convert_tiff` (only if `params.heatmap=true`): converts generated heatmaps to TIFF format.
 
 - **`modules/grid_search.nf`**
   - `process split_dataset`: runs `histomil-splits` to create train, validation, and test splits at the case level.
   - `process grid_search`: runs `histomil-grid` for each `feature_extractor × MIL architecture` combination.
-  - Forwards the selected training mode and, when required, the resolved pretrained checkpoint and best-parameter configuration to HistoMILTrainer.
+  - `process train`: runs `histomil-train` with fixed hyperparameters (`mode=train`).
+  - Forwards the selected transfer mode and, when required, the resolved pretrained checkpoint and best-parameter configuration to HistoMILTrainer.
   - Publishes:
     - `test_results_*.csv`: test metrics for each fold.
     - `predictions_*.csv`: test predictions for each fold.
+    - `best_params_*.json` and `*_best_model.pt` checkpoints.
   - `process concat_results`: concatenates all test metrics into `summary.csv`.
 
 - **`modules/plots.nf`**
@@ -48,10 +51,9 @@ The pipeline also supports **transfer learning from previously trained MIL check
   - `process roc_auc_curve`: generates ROC AUC curves using `bin/roc_auc_curve.R`.
 
 - **`modules/heatmaps.nf`**
-  - `process select_best_config`: identifies the best hyperparameter configuration based on validation metrics.
-  - `process predict`: runs `histomil-predict` to generate predictions and attention scores using the selected model.
-  - `process heatmap`: runs `histomil-heatmap` to visualize attention scores on slide images.
-  - `process convert_tiff`: converts generated heatmap images to tiled BigTIFF format using `gdal_translate`.
+  - `process predict`: runs `histomil-predict` to generate predictions and attention scores using each trained model.
+  - `process heatmap`: runs `histomil-heatmap` to visualize attention scores on slide images (skipped when `heatmap=false`).
+  - `process convert_tiff`: converts generated heatmap images to tiled BigTIFF format using `gdal_translate` (skipped when `heatmap=false`).
 
 - **`bin/`**
   - `boxplot_auc.R`: reads `summary.csv` and generates a ROC AUC boxplot comparing feature extractors and MIL architectures.
@@ -135,29 +137,49 @@ The YAML file selected through `-params-file` defines the execution-specific con
 
 - `dataset`: path to the CSV file containing `case_id`, `slide_id`, and the target column.
 - `features_dir`: base directory containing the pre-extracted feature directories.
-- `slides_dir`: base directory containing the WSIs.
+- `slides_dir`: base directory containing the WSIs (required for heatmap PNG/TIFF when `heatmap=true`).
 - `outdir`: output directory for the execution.
 - `target`: name of the target column.
 - `task`: learning task. Currently, `"classification"` is supported.
 - `folds`: number of cross-validation folds.
-- `transfer_mode`: training mode. Accepted values are `scratch`, `head_only`, and `partial`.
-- `checkpoint_results_dir`: root directory containing the `best_params/` and `models/` directories from a previous source execution.
-- `checkpoint_fold`: fold of the source execution used to select the pretrained checkpoint.
+- `mode`: pipeline training stage — `grid` (hyperparameter search) or `train` (fixed hyperparameters / transfer learning).
+- `heatmap`: if `true`, run `heatmap` and `convert_tiff`; if `false`, only `predict` (attention scores + predictions CSV).
+- `transfer_mode`: used when `mode=train`. Accepted values are `scratch`, `head_only`, and `partial`.
+- `best_params_dir`: directory containing `best_params_{feature_extractor}.{mil}.json` files (required for `mode=train` unless resolved from `checkpoint_results_dir`).
+- `checkpoint_results_dir`: root directory containing `best_params/` and `models/` from a previous execution (required for `head_only` and `partial`).
+- `checkpoint_fold`: fold used to select the pretrained checkpoint for transfer learning.
 
-Example for scratch training:
+Example for grid search (`mode=grid`):
 
 ```yaml
 dataset: "/path/to/class_dataset.csv"
 features_dir: "/path/to/features/base/directory/"
 slides_dir: "/path/to/slides/base/directory/"
-outdir: "./results_scratch/"
+outdir: "./results_grid/"
 target: "target"
 task: "classification"
-folds: 5
-transfer_mode: "scratch"
+folds: 10
+mode: "grid"
+heatmap: false
 ```
 
-Example for checkpoint-based transfer:
+Example for scratch training with fixed hyperparameters (`mode=train`):
+
+```yaml
+dataset: "/path/to/class_dataset.csv"
+features_dir: "/path/to/features/base/directory/"
+slides_dir: "/path/to/slides/base/directory/"
+outdir: "./results_train/"
+target: "target"
+task: "classification"
+folds: 10
+mode: "train"
+transfer_mode: "scratch"
+best_params_dir: "/path/to/prior_run/best_params/"
+heatmap: false
+```
+
+Example for checkpoint-based transfer (`mode=train`):
 
 ```yaml
 dataset: "/path/to/target_dataset.csv"
@@ -166,10 +188,13 @@ slides_dir: "/path/to/target/slides/"
 outdir: "./results_transfer/"
 target: "target"
 task: "classification"
-folds: 5
+folds: 10
+mode: "train"
 transfer_mode: "head_only"
 checkpoint_results_dir: "/path/to/source/results/"
 checkpoint_fold: 0
+best_params_dir: "/path/to/source/results/best_params/"
+heatmap: false
 ```
 
 ---
@@ -197,10 +222,13 @@ HistoMILTrainer
 The parameters are used as follows:
 
 - `dataset`, `features_dir`, `target`, `task`, and `folds` define the training dataset and cross-validation procedure.
-- `transfer_mode` determines whether the model is trained from scratch or initialized from a previous checkpoint.
-- `checkpoint_results_dir` is interpreted by the pipeline as the root of the source execution.
+- `mode` selects whether the pipeline runs `histomil-grid` or `histomil-train`.
+- `transfer_mode` determines whether the model is trained from scratch or initialized from a previous checkpoint (`mode=train` only).
+- `checkpoint_results_dir` is interpreted as the root of the source execution for transfer learning.
 - For `head_only` and `partial`, the pipeline resolves the architecture-specific best-parameter file and checkpoint using the current feature extractor, MIL architecture, and `checkpoint_fold`.
-- `slides_dir` is primarily required by prediction and heatmap generation rather than by the core grid-search training step.
+- `best_params_dir` supplies the JSON hyperparameter files for `mode=train`.
+- `heatmap` controls whether PNG heatmaps and TIFF conversion are executed after `predict`.
+- `slides_dir` is required when `heatmap=true`.
 - `outdir` controls where Nextflow publishes the outputs of the current execution.
 
 The exact HistoMILTrainer command-line options are assembled by the Nextflow modules. Therefore, YAML parameter names should remain synchronized with the parameters referenced in `main.nf` and `modules/grid_search.nf`.
@@ -209,7 +237,7 @@ The exact HistoMILTrainer command-line options are assembled by the Nextflow mod
 
 ### Transfer learning
 
-The pipeline supports three training modes:
+When `mode=train`, the pipeline supports three training modes via `transfer_mode`:
 
 - **`scratch`**: trains the selected MIL architecture from random initialization.
 - **`head_only`**: loads compatible weights from a pretrained checkpoint and trains only the classification head or architecture-specific output heads.
@@ -248,6 +276,12 @@ All outputs are written under `params.outdir`.
     - `{feature_extractor}.{mil}/`
       - `predictions_{feature_extractor}.{mil}_{fold}.csv`: predictions containing `slide_id`, `y_true`, `y_pred`, and `y_score`.
 
+- **Best parameters and checkpoints**
+  - `best_params/`
+    - `best_params_{feature_extractor}.{mil}.json`
+  - `models/{feature_extractor}.{mil}/`
+    - `{fold}_best_model.pt`
+
 - **Splits**
   - `splits/`
     - `{target}/`
@@ -274,68 +308,82 @@ All outputs are written under `params.outdir`.
 
 ### Requirements
 
-- **Nextflow** ≥ 22.x.
-- Access to Singularity or Wave containers as configured in `nextflow.config`.
+- **Nextflow** ≥ 22.x (CI uses 25.10.2).
+- **micromamba** or **conda** to create the runtime environment (recommended).
+- **NVIDIA GPU** for training and prediction processes on the cluster (`kutral` profile requests `--gres=gpu:1`).
 - A cluster with **SLURM** when using the `kutral` profile.
-- [HistoMILTrainer transfer-learning branch](https://github.com/alanEmolina/HistoMILTrainer/tree/feature/mil-transfer-learning) for `head_only` and `partial` training.
+- [HistoMILTrainer](https://github.com/digenoma-lab/HistoMILTrainer) (installed via `environment.yml` or `requirements.txt`).
+
+The default environment pins **PyTorch cu126** wheels for clusters whose NVIDIA driver supports CUDA 12.6 (for example, `ngen-ko` on Kutral). Adjust `torch`/`torchvision` pins in `environment.yml` if your driver requires a different CUDA build.
+
+---
+
+### Environment setup
+
+The pipeline expects CLI tools on `PATH`: `histomil-grid`, `histomil-train`, `histomil-splits`, `histomil-predict`, `histomil-heatmap`, `Rscript`, and `gdal_translate`.
+
+**Recommended (micromamba — Python, R, GDAL, and HistoMILTrainer):**
+
+```bash
+micromamba create -f environment.yml -n histomil-mil -y
+micromamba activate histomil-mil
+# Optional: pin CUDA wheels if a dependency upgraded torch
+export PIP_EXTRA_INDEX_URL=https://download.pytorch.org/whl/cu126
+pip install --force-reinstall torch==2.13.0+cu126 torchvision==0.28.0+cu126
+```
+
+**Pip only (Python tools; no R plots or GDAL unless installed separately):**
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+Activate the runtime environment in the same shell before launching Nextflow (and on cluster login nodes used for `nextflow run`). Slurm compute jobs must still find `histomil-*` on `PATH` — configure that via your cluster setup or Nextflow `beforeScript` if jobs fail with "command not found".
+
+Verify GPU access after setup:
+
+```bash
+python -c "import torch; print(torch.__version__, torch.cuda.is_available())"
+```
 
 ---
 
 ### Basic usage
 
-1. Load the environment where Nextflow and Singularity are available.
+1. Install the runtime environment (see [Environment setup](#environment-setup)).
 
-2. Build the Singularity container for [HistoMILTrainer](https://github.com/alanEmolina/HistoMILTrainer/tree/feature/mil-transfer-learning):
+2. Activate `histomil-mil` (and your Nextflow environment if separate).
 
-   ```bash
-   cd singularity/
-   singularity build histomil.sif histomil.def
-   ```
+3. Configure `params/feature_extractors.csv` and `params/architectures.csv`.
 
-3. Configure the feature extractors in `params/feature_extractors.csv`.
+4. Create or edit a YAML params file under `params/` (committed stubs: `params_stub.yml`, `params_stub_train.yml`). Set paths, `mode`, `folds`, `heatmap`, and transfer-learning fields as needed.
 
-4. Configure the MIL architectures in `params/architectures.csv`.
-
-5. Choose or edit a YAML file in `params/`:
-   - Set `dataset`.
-   - Set `features_dir`.
-   - Set `slides_dir`.
-   - Set `outdir`.
-   - Set `target`.
-   - Set `task`.
-   - Set `folds`.
-   - Set `transfer_mode`.
-   - For `head_only` or `partial`, set `checkpoint_results_dir` and `checkpoint_fold`.
-
-6. Run the pipeline:
+5. Run the pipeline:
 
 ```bash
-# Scratch training
+# Grid search on the cluster
 nextflow run main.nf -profile kutral \
-  -params-file params/params_scratch.yml
+  -params-file params/params_stub.yml
 
-# Head-only transfer
+# Transfer learning (mode=train)
 nextflow run main.nf -profile kutral \
-  -params-file params/params_transfer_head_only.yml
+  -params-file params/params_stub_train.yml
 
-# Partial transfer
-nextflow run main.nf -profile kutral \
-  -params-file params/params_transfer_partial.yml
-```
-
-For local execution without SLURM:
-
-```bash
+# Local execution (no SLURM)
 nextflow run main.nf -profile local \
-  -params-file params/params_scratch.yml
-```
+  -params-file params/params_stub.yml
 
-To resume an interrupted execution:
-
-```bash
+# Resume after interruption
 nextflow run main.nf -profile kutral \
-  -params-file params/params_transfer_head_only.yml \
+  -params-file params/your_params.yml \
   -resume
+
+# CI / dry run without real execution
+nextflow run main.nf -profile stub \
+  -params-file params/params_stub.yml \
+  -stub-run
 ```
 
 ---
@@ -356,7 +404,7 @@ The pipeline supports multiple MIL architectures from [MIL-Lab](https://github.c
 
 Each architecture is configured through HistoMILTrainer JSON files in `histomil/configs/req_grid/`. These files also define the architecture-specific trainable modules used by `partial` transfer learning.
 
-> **Note**: CLAM automatically sets `batch_size` to 1 during training. MIL-Lab must be installed and accessible in the HistoMILTrainer environment.
+> **Note**: CLAM automatically sets `batch_size` to 1 during training. MIL-Lab is installed as a dependency of HistoMILTrainer.
 
 ---
 
@@ -375,6 +423,11 @@ results/
 │   ├── {feature_extractor}.{mil}/
 │   │   └── test_results_{feature_extractor}.{mil}.csv
 │   └── ...
+├── best_params/
+│   └── best_params_{feature_extractor}.{mil}.json
+├── models/
+│   └── {feature_extractor}.{mil}/
+│       └── {fold}_best_model.pt
 ├── predictions/
 │   ├── {feature_extractor}.{mil}/
 │   │   ├── predictions_{feature_extractor}.{mil}_0.csv
@@ -408,17 +461,19 @@ results/
 
 3. Configure the number of cross-validation folds through `folds` in the selected YAML file.
 
-4. Grid-search processes can be memory- and GPU-intensive. Adjust resource allocations in `nextflow.config` when required.
+4. Grid-search and train processes are memory- and GPU-intensive. Adjust resource allocations in `nextflow.config` when required. The `kutral` profile excludes node `wuruwe` from GPU jobs.
 
 5. Use `-resume` to continue interrupted Nextflow executions.
 
-6. Store pre-extracted features in H5 format, with one `{slide_id}.h5` file per slide.
+6. Store pre-extracted features in H5 format, with one `{slide_id}.h5` file per slide. Ensure every slide in the dataset CSV has a matching feature file (filter invalid slides before training).
 
 7. Keep the source execution's `best_params/` and `models/` directories under the same `checkpoint_results_dir`.
 
 8. Preserve consistent feature extractor and MIL architecture names between source and target executions.
 
-9. Keep execution-specific paths in YAML parameter files rather than hard-coding them in Nextflow modules, container definitions, environment files, or Trainer source code.
+9. Keep execution-specific paths in YAML parameter files rather than hard-coding them in Nextflow modules or Trainer source code.
+
+10. Launch Nextflow from an activated runtime environment; if Slurm jobs cannot find `histomil-grid`, add a `beforeScript` `PATH` export in `nextflow.config`.
 
 ---
 
@@ -431,6 +486,9 @@ If you use this pipeline in your research, please cite:
 
 - **HistoMIL**: library used for training MIL architectures on histology data.
   - Repository: [https://github.com/digenoma-lab/HistoMIL](https://github.com/digenoma-lab/HistoMIL)
+
+- **HistoMILTrainer**: CLI and training wrappers used by this Nextflow pipeline.
+  - Repository: [https://github.com/digenoma-lab/HistoMILTrainer](https://github.com/digenoma-lab/HistoMILTrainer)
 
 - **This pipeline**: cite this repository when using the complete Nextflow workflow.
 

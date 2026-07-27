@@ -1,0 +1,19 @@
+name: histomil-mil
+channels:
+  - conda-forge
+dependencies:
+  - python=3.10
+  - pip
+  - git
+  - gdal
+  - r-base
+  - r-ggplot2
+  - r-readr
+  - r-dplyr
+  - r-stringr
+  - pip:
+    # ngen-ko drivers: tokikura/wuruwe=12.6, v100=12.8 — use cu126 wheels.
+    - --extra-index-url https://download.pytorch.org/whl/cu126
+    - torch==2.13.0+cu126
+    - torchvision==0.28.0+cu126
+    - git+https://github.com/digenoma-lab/HistoMILTrainer.git
