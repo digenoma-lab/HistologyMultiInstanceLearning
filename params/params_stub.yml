@@ -1,7 +1,8 @@
-dataset: './data/stub_class_MKI67_ESR1.csv'
+dataset: "./data/stub_dataset.csv"
 features_dir: "./data/features/"
 slides_dir: "./data/slides/"
 outdir: "./results/"
 target: "target"
 task: "classification"
+folds: 2
 mode: "grid"
