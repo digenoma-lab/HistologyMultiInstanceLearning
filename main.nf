@@ -1,6 +1,6 @@
 include {
-    grid_search_workflow;
-} from './workflows/grid_search.nf'
+    training_workflow;
+} from './workflows/training.nf'
 include {
     plots;
 } from './workflows/plots.nf'
@@ -9,7 +9,12 @@ include {
 } from './workflows/heatmap.nf'
 
 workflow {
+    if (!(params.mode in ['grid', 'train'])) {
+        error "params.mode must be 'grid' or 'train' (got: ${params.mode})"
+    }
+
     dataset = Channel.value(file(params.dataset))
+    folds = Channel.value(params.folds)
 
     feature_extractors = Channel.fromPath("${projectDir}/params/feature_extractors.csv")
         .splitCsv(header: true, sep: ',')
@@ -35,39 +40,47 @@ workflow {
         )
     }
 
-    transfer_mode = Channel.value(params.transfer_mode)
-    checkpoint_results_dir = Channel.value(params.checkpoint_results_dir)
-    checkpoint_fold = Channel.value(params.checkpoint_fold)
-    folds = Channel.value(params.folds)
-    best_params_dir = Channel.value(
-        params.best_params_dir ?: params.grid_params_dir
-    )
-
-    configs = feature_paths
+    base_configs = feature_paths
         .combine(architectures)
-        .combine(transfer_mode)
-        .combine(checkpoint_results_dir)
-        .combine(checkpoint_fold)
         .combine(folds)
-        .combine(best_params_dir)
+
+    if (params.mode == 'grid') {
+        grid_configs = base_configs
+        train_configs = Channel.empty()
+    }
+    else {
+        if (params.transfer_mode != 'scratch' && !params.checkpoint_results_dir) {
+            error "params.checkpoint_results_dir is required when mode=train and transfer_mode=${params.transfer_mode}"
+        }
+        def resolved_best_params_dir = params.best_params_dir ?: params.grid_params_dir
+        if (!resolved_best_params_dir && !params.checkpoint_results_dir) {
+            error "params.best_params_dir (or checkpoint_results_dir) is required when mode=train"
+        }
+
+        grid_configs = Channel.empty()
+        train_configs = base_configs
+            .combine(Channel.value(params.transfer_mode))
+            .combine(Channel.value(params.checkpoint_results_dir))
+            .combine(Channel.value(params.checkpoint_fold))
+            .combine(Channel.value(resolved_best_params_dir))
+    }
 
     script_boxplot = Channel.value(file("${projectDir}/bin/boxplot_auc.R"))
     script_roc_auc = Channel.value(file("${projectDir}/bin/roc_auc_curve.R"))
-
     slides_dir = Channel.fromPath(params.slides_dir)
 
-    grid_search_workflow(dataset, params.target, configs)
+    training_workflow(dataset, params.target, grid_configs, train_configs)
 
     plots(
-        grid_search_workflow.out.summary,
-        grid_search_workflow.out.predictions,
+        training_workflow.out.summary,
+        training_workflow.out.predictions,
         script_boxplot,
         script_roc_auc
     )
 
     heatmap_workflow(
-        grid_search_workflow.out.summary,
-        grid_search_workflow.out.best_model_params,
+        training_workflow.out.summary,
+        training_workflow.out.best_model_params,
         slides_dir,
         dataset
     )

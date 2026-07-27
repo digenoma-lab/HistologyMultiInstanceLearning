@@ -6,6 +6,7 @@ target: "target"
 task: "classification"
 folds: 1
 
+mode: "train"
 best_params_dir: "/mnt/beegfs/home/amolina/RESULTADOS_BUENOS_repos_tesis/HRR/HRR_ER/HRR_exc_er_MIL/results/best_params/"
 checkpoint_results_dir: "/mnt/beegfs/home/amolina/RESULTADOS_BUENOS_repos_tesis/HRR/HRR_ER/HRR_exc_er_MIL/results/"
 transfer_mode: "head_only"

@@ -4,3 +4,4 @@ slides_dir: "/mnt/beegfs/home/amolina/hrr_scanner/processed_data/HE_pyramid(mag_
 outdir: "/mnt/beegfs/home/amolina/repositorios/HRR_results_no_borrar/HRR_exc_er_MIL/results"
 target: "target"
 task: "classification"
+mode: "grid"
