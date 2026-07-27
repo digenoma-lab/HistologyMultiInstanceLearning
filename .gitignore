@@ -4,3 +4,7 @@ work/
 results*/
 bin/HistoMILTrainer/
 *.sif
+
+# Local experiment YAMLs — only stub configs may be committed
+params/*.yml
+!params/params_stub*.yml
