@@ -1,10 +1,10 @@
 architecture
 abmil
+clam
 dsmil
-dftd
+transmil
+transformer
+dfdt
 ilra
 rrt
-transformer
-transmil
 wikg
-clam

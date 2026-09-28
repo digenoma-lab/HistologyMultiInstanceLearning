@@ -1,3 +1,8 @@
 patch_encoder,patch_size,mag,overlap
 uni_v2,256,20,0
+gigapath,256,20,0
 virchow2,224,20,0
+ctranspath,256,10,0
+conch_v15,512,20,0
+resnet50,256,20,0
+phikon_v2,224,20,0
