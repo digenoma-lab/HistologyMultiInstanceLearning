@@ -72,7 +72,7 @@ workflow {
         ? Channel.fromPath(params.slides_dir)
         : Channel.empty()
 
-    training_workflow(dataset, params.target, grid_configs, train_configs)
+    training_workflow(dataset, params.target, grid_configs, train_configs, folds)
 
     plots(
         training_workflow.out.summary,

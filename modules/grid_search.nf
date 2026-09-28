@@ -3,12 +3,13 @@ process split_dataset {
     input:
         path(dataset)
         val(target_column)
+        val(folds)
     output:
         tuple path(dataset), val(target_column), path(target_column), emit: splits
     script:
         """
         histomil-splits --csv_path $dataset --target $target_column \\
-        --output_name $target_column --splits_dir ./
+        --output_name $target_column --splits_dir ./ --folds ${folds}
         """
     stub:
         """

@@ -11,9 +11,10 @@ workflow training_workflow {
     target
     grid_configs
     train_configs
+    folds
 
     main:
-    split_dataset(dataset, target)
+    split_dataset(dataset, target, folds)
 
     grid_search(grid_configs, split_dataset.out.splits)
     train(train_configs, split_dataset.out.splits)
