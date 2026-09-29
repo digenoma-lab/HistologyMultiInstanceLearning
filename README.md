@@ -17,15 +17,16 @@ The pipeline also supports **transfer learning from previously trained MIL check
 - **`main.nf`**  
   Orchestrates the pipeline:
   - Reads the clinical or dataset file from `params.dataset`.
-  - Reads the list of feature extractors from `params/feature_extractors.csv`.
-  - Reads the list of MIL architectures from `params/architectures.csv`.
+  - Reads feature extractors from `params.feature_extractors` (default: `params/feature_extractors.csv`).
+  - Reads MIL architectures from `params.architectures` (default: `params/architectures.csv`).
+  - If `params.configs` is set, evaluates only the listed `feature_extractor,architecture` pairs; otherwise runs the full cartesian product.
   - Uses `params.features_dir` to construct the feature directory associated with each patch encoder.
   - Reads the training mode from `params.mode` (`grid` or `train`).
   - Uses `params.transfer_mode`, `params.checkpoint_results_dir`, and `params.best_params_dir` when `mode=train`.
   - Skips PNG/TIFF heatmaps when `params.heatmap` is `false` (attention scores are still produced by `predict`).
   - Launches:
     - `split_dataset`: splits the dataset into train, validation, and test folds at the case level.
-    - `grid_search` (when `mode=grid`): hyperparameter grid search for each `feature_extractor × MIL architecture` combination.
+    - `grid_search` (when `mode=grid`): hyperparameter grid search for each selected `feature_extractor × MIL architecture` combination.
     - `train` (when `mode=train`): training with fixed hyperparameters from a prior grid search or transfer-learning checkpoint.
     - `concat_results`: concatenates all test metrics into a single summary file.
     - `boxplot_auc`: generates a global ROC AUC boxplot.
@@ -78,8 +79,9 @@ The pipeline also supports **transfer learning from previously trained MIL check
     case_2,slide_4,1
     ```
 
-- **Feature extractors configuration** (`params/feature_extractors.csv`)
-  - CSV file loaded by the pipeline from the `params/` directory.
+- **Feature extractors configuration** (`params.feature_extractors`, default: `params/feature_extractors.csv`)
+  - CSV file with patch-encoder metadata used to build feature paths.
+  - Always loaded, even when `params.configs` restricts which pairs run.
   - Required columns:
     - `patch_encoder`: patch-level encoder name, for example `uni_v2` or `virchow2`.
     - `patch_size`: patch size in pixels.
@@ -93,8 +95,9 @@ The pipeline also supports **transfer learning from previously trained MIL check
     virchow2,224,20,0
     ```
 
-- **MIL architectures configuration** (`params/architectures.csv`)
-  - CSV file loaded by the pipeline from the `params/` directory.
+- **MIL architectures configuration** (`params.architectures`, default: `params/architectures.csv`)
+  - CSV file listing allowed MIL architectures.
+  - Always loaded: used for the full cartesian product when `params.configs` is empty, and to validate names when `params.configs` is set.
   - Required column:
     - `architecture`: MIL architecture name.
 
@@ -110,6 +113,21 @@ The pipeline also supports **transfer learning from previously trained MIL check
     transformer
     transmil
     wikg
+    ```
+
+- **Optional run configs** (`params.configs`)
+  - Optional CSV of explicit `feature_extractor,architecture` pairs to evaluate.
+  - If omitted or empty, the pipeline runs the full cartesian product of `feature_extractors × architectures`.
+  - If set, only the listed pairs run. Each `feature_extractor` must exist as `patch_encoder` in `params.feature_extractors`; each `architecture` must exist in `params.architectures`.
+  - Required columns:
+    - `feature_extractor`: encoder name (matches `patch_encoder`).
+    - `architecture`: MIL architecture name.
+
+  - Example (`params/configs.example.csv`):
+    ```csv
+    feature_extractor,architecture
+    uni_v2,abmil
+    virchow2,clam
     ```
 
 - **Features directory** (`params.features_dir`)
@@ -139,9 +157,12 @@ The YAML file selected through `-params-file` defines the execution-specific con
 - `features_dir`: base directory containing the pre-extracted feature directories.
 - `slides_dir`: base directory containing the WSIs (required for heatmap PNG/TIFF when `heatmap=true`).
 - `outdir`: output directory for the execution.
+- `feature_extractors`: path to the patch-encoder metadata CSV (default: `params/feature_extractors.csv`).
+- `architectures`: path to the MIL architectures CSV (default: `params/architectures.csv`).
+- `configs`: optional path to a CSV of `feature_extractor,architecture` pairs; omit for the full cartesian product.
 - `target`: name of the target column.
 - `task`: learning task. Currently, `"classification"` is supported.
-- `folds`: number of cross-validation folds.
+- `folds`: number of cross-validation folds (`>= 2`), or `1` for a single holdout (no CV). With `folds: 1`, HistoMILTrainer splits cases into train/test (`test_frac`) and carves validation from the non-test cases (`val_frac`, default 0.2) for early stopping.
 - `mode`: pipeline training stage — `grid` (hyperparameter search) or `train` (fixed hyperparameters / transfer learning).
 - `heatmap`: if `true`, run `heatmap` and `convert_tiff`; if `false`, only `predict` (attention scores + predictions CSV).
 - `transfer_mode`: used when `mode=train`. Accepted values are `scratch`, `head_only`, and `partial`.
@@ -356,7 +377,7 @@ python -c "import torch; print(torch.__version__, torch.cuda.is_available())"
 
 2. Activate `histomil-mil` (and your Nextflow environment if separate).
 
-3. Configure `params/feature_extractors.csv` and `params/architectures.csv`.
+3. Configure `params/feature_extractors.csv` and `params/architectures.csv`. Optionally set `configs` to a CSV of pairs (see `params/configs.example.csv`) to avoid the full cartesian product.
 
 4. Create or edit a YAML params file under `params/` (committed stubs: `params_stub.yml`, `params_stub_train.yml`). Set paths, `mode`, `folds`, `heatmap`, and transfer-learning fields as needed.
 
@@ -455,11 +476,11 @@ results/
 
 ### Tips and best practices
 
-1. Ensure that the `patch_encoder`, `patch_size`, `mag`, and `overlap` values in `params/feature_extractors.csv` match the physical directory structure under `features_dir`.
+1. Ensure that the `patch_encoder`, `patch_size`, `mag`, and `overlap` values in `params.feature_extractors` match the physical directory structure under `features_dir`. When using `params.configs`, every listed `feature_extractor` / `architecture` must also appear in those CSVs.
 
 2. The dataset is split at the case level to prevent data leakage. Multiple slides from the same case remain in the same train, validation, or test partition.
 
-3. Configure the number of cross-validation folds through `folds` in the selected YAML file.
+3. Configure the number of folds through `folds` in the selected YAML file (`>= 2` for CV, or `1` for a single holdout split).
 
 4. Grid-search and train processes are memory- and GPU-intensive. Adjust resource allocations in `nextflow.config` when required. The `kutral` profile excludes node `wuruwe` from GPU jobs.
 

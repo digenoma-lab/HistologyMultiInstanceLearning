@@ -48,6 +48,34 @@
           "help_text": "Directory where all pipeline outputs will be saved. Results include training results (summary.csv, test_results), predictions, splits, and plots (boxplot.png).",
           "fa_icon": "fas fa-folder-open",
           "errorMessage": "The output directory path must be at least 1 character long."
+        },
+        "feature_extractors": {
+          "type": "string",
+          "format": "file-path",
+          "mimetype": "text/csv",
+          "description": "CSV with patch_encoder, patch_size, mag, and overlap metadata",
+          "pattern": "^\\S+\\.csv$",
+          "help_text": "Always loaded. Provides encoder metadata for feature path construction. Default: params/feature_extractors.csv.",
+          "fa_icon": "fas fa-file-csv",
+          "errorMessage": "The feature_extractors path must end with .csv and must not contain spaces."
+        },
+        "architectures": {
+          "type": "string",
+          "format": "file-path",
+          "mimetype": "text/csv",
+          "description": "CSV listing allowed MIL architectures",
+          "pattern": "^\\S+\\.csv$",
+          "help_text": "Always loaded. Used for the full cartesian product when configs is empty, and to validate architecture names when configs is set. Default: params/architectures.csv.",
+          "fa_icon": "fas fa-file-csv",
+          "errorMessage": "The architectures path must end with .csv and must not contain spaces."
+        },
+        "configs": {
+          "type": "string",
+          "format": "file-path",
+          "mimetype": "text/csv",
+          "description": "Optional CSV of feature_extractor,architecture pairs to evaluate",
+          "help_text": "If empty or omitted, run the full feature_extractors × architectures product. If set, only the listed pairs run; each name must exist in feature_extractors and architectures.",
+          "fa_icon": "fas fa-file-csv"
         }
       },
       "required": [
@@ -94,4 +122,3 @@
     }
   ]
 }
-

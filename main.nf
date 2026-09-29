@@ -16,33 +16,66 @@ workflow {
     dataset = Channel.value(file(params.dataset))
     folds = Channel.value(params.folds)
 
-    feature_extractors = Channel.fromPath("${projectDir}/params/feature_extractors.csv")
+    def fe_rows = file(params.feature_extractors).splitCsv(header: true, sep: ',')
+    def fe_map = fe_rows.collectEntries { row ->
+        [(row.patch_encoder): row]
+    }
+    def arch_list = file(params.architectures)
         .splitCsv(header: true, sep: ',')
-        .map { row ->
-            tuple(
-                row.patch_encoder,
-                row.patch_size,
-                row.mag,
-                row.overlap
-            )
-        }
+        .collect { row -> row.architecture }
+    def arch_set = arch_list as Set
 
-    architectures = Channel.fromPath("${projectDir}/params/architectures.csv")
-        .splitCsv(header: true, sep: ',')
-        .map { row ->
-            tuple(row.architecture)
+    def resolveFeatureDir = { encoder, meta ->
+        file("${params.features_dir}/${meta.mag}x_${meta.patch_size}px_${meta.overlap}px_overlap/features_${encoder}/")
+    }
+    def requireFeatureDir = { encoder, meta ->
+        def features_path = resolveFeatureDir(encoder, meta)
+        if (!features_path.exists()) {
+            error "Feature directory not found for '${encoder}': ${features_path}"
         }
-
-    feature_paths = feature_extractors.map { row ->
-        tuple(
-            row[0],
-            file("${params.features_dir}/${row[2]}x_${row[1]}px_${row[3]}px_overlap/features_${row[0]}/")
-        )
+        return features_path
     }
 
-    base_configs = feature_paths
-        .combine(architectures)
-        .combine(folds)
+    if (params.configs) {
+        def config_rows = file(params.configs).splitCsv(header: true, sep: ',')
+        config_rows.each { row ->
+            if (!fe_map.containsKey(row.feature_extractor)) {
+                error "Unknown feature_extractor '${row.feature_extractor}' in configs (not in ${params.feature_extractors})"
+            }
+            if (!arch_set.contains(row.architecture)) {
+                error "Unknown architecture '${row.architecture}' in configs (not in ${params.architectures})"
+            }
+        }
+
+        base_configs = Channel.fromList(
+            config_rows.collect { row ->
+                def meta = fe_map[row.feature_extractor]
+                tuple(
+                    row.feature_extractor,
+                    requireFeatureDir(row.feature_extractor, meta),
+                    row.architecture
+                )
+            }
+        ).combine(folds)
+    }
+    else {
+        feature_extractors = Channel.fromList(
+            fe_rows.collect { row ->
+                tuple(
+                    row.patch_encoder,
+                    requireFeatureDir(row.patch_encoder, row)
+                )
+            }
+        )
+
+        architectures = Channel.fromList(
+            arch_list.collect { arch -> tuple(arch) }
+        )
+
+        base_configs = feature_extractors
+            .combine(architectures)
+            .combine(folds)
+    }
 
     if (params.mode == 'grid') {
         grid_configs = base_configs

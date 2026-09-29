@@ -15,7 +15,7 @@ process split_dataset {
         """
         mkdir -p $target_column/
         cp $dataset $target_column/
-        for i in {0..9}; do
+        for i in \$(seq 0 \$((${folds} - 1))); do
             touch $target_column/splits_\${i}_bool.csv
             touch $target_column/splits_\${i}_descriptor.csv
         done

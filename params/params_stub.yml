@@ -4,6 +4,8 @@ slides_dir: "./data/slides/"
 outdir: "./results/"
 target: "target"
 task: "classification"
-folds: 2
+folds: 1
 mode: "grid"
 heatmap: false
+# Holdout pairs that have stub feature dirs (optional; omit for full FE × architectures)
+configs: "./params/configs.csv"
